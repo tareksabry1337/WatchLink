@@ -1,0 +1,511 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 63;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1032DB7A4616D66218CFE20B /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F357747D38F0D3CE80BEDB3 /* Messages.swift */; };
+		1CE077C874F18EEA67AAFB7F /* WatchLink in Frameworks */ = {isa = PBXBuildFile; productRef = 7964AC846436F61DA647598E /* WatchLink */; };
+		795CA8AC8383895DB4AB81B0 /* PhoneContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CA28AF9A1B6186E5E908848 /* PhoneContentView.swift */; };
+		7FAA8FCF3C02163E0860825D /* WatchLinkCore in Frameworks */ = {isa = PBXBuildFile; productRef = E61291B70D83F8ED0DEFC380 /* WatchLinkCore */; };
+		812DBC55D39E2F3B995E8A2C /* WatchViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3837C9B18DA3BE1A29C6C900 /* WatchViewModel.swift */; };
+		86123748230F45EEBA9C5366 /* PingPongWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 751A8C3BE6C8CDB624C22C8F /* PingPongWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AF3EA1F78F944BA5A7EE5D14 /* WatchLinkCore in Frameworks */ = {isa = PBXBuildFile; productRef = FD8CEC827D3CF282F8059C45 /* WatchLinkCore */; };
+		BBD8450C2A4F10ABCE2A4EDD /* WatchContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 632B2CEA13BEC9198C5DC1F4 /* WatchContentView.swift */; };
+		BD500DA1854FC1CFD85EA84E /* PhoneViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13131278D3DF92A9A28A76C3 /* PhoneViewModel.swift */; };
+		C1544FD670E7B64AAC48B256 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79DEB30E04CE67C6F724A313 /* WatchApp.swift */; };
+		C18A860063B1BD7E742C7CB9 /* BLEConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92297865A41D8E56B846DC4C /* BLEConstants.swift */; };
+		D139A1196E5430292BF8EB63 /* Messages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F357747D38F0D3CE80BEDB3 /* Messages.swift */; };
+		D8959C0295A72344D10C0F81 /* PhoneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC46EA107B9FFFD4DB5B301F /* PhoneApp.swift */; };
+		D9449C1245208CCE2D260D1B /* WatchLinkHost in Frameworks */ = {isa = PBXBuildFile; productRef = 0C4B801C3D7DD72DF500C312 /* WatchLinkHost */; };
+		F0B3B57543D05EF52EEC4721 /* BLEConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92297865A41D8E56B846DC4C /* BLEConstants.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		56B801790E981A83D2AD3233 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A05EAC62C906FCEF347F74DB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EC7FECB64FEA692F3A2F01D3;
+			remoteInfo = PingPongWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FEB991ADF745864C5EC26BDA /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				86123748230F45EEBA9C5366 /* PingPongWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		13131278D3DF92A9A28A76C3 /* PhoneViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneViewModel.swift; sourceTree = "<group>"; };
+		1CA28AF9A1B6186E5E908848 /* PhoneContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneContentView.swift; sourceTree = "<group>"; };
+		3837C9B18DA3BE1A29C6C900 /* WatchViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchViewModel.swift; sourceTree = "<group>"; };
+		57A83F06FC6081C07A68F732 /* PingPongPhone.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PingPongPhone.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		632B2CEA13BEC9198C5DC1F4 /* WatchContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchContentView.swift; sourceTree = "<group>"; };
+		6F357747D38F0D3CE80BEDB3 /* Messages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Messages.swift; sourceTree = "<group>"; };
+		722AB7C6DDBF61880CB5FF90 /* WatchLink */ = {isa = PBXFileReference; lastKnownFileType = folder; name = WatchLink; path = ../..; sourceTree = SOURCE_ROOT; };
+		751A8C3BE6C8CDB624C22C8F /* PingPongWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PingPongWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		79DEB30E04CE67C6F724A313 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
+		92297865A41D8E56B846DC4C /* BLEConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEConstants.swift; sourceTree = "<group>"; };
+		BC46EA107B9FFFD4DB5B301F /* PhoneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneApp.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		23DD42863046EC31479ED6FC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D9449C1245208CCE2D260D1B /* WatchLinkHost in Frameworks */,
+				7FAA8FCF3C02163E0860825D /* WatchLinkCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9E42CA51925C997ECF945842 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CE077C874F18EEA67AAFB7F /* WatchLink in Frameworks */,
+				AF3EA1F78F944BA5A7EE5D14 /* WatchLinkCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		20D082A8639A5CFA6875FEA8 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				722AB7C6DDBF61880CB5FF90 /* WatchLink */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		4AA4E57B2E43546BAE5D0835 = {
+			isa = PBXGroup;
+			children = (
+				20D082A8639A5CFA6875FEA8 /* Packages */,
+				66E14C00157CA6F2042BD99C /* Phone */,
+				78D949B06BCFD80980D0D2EE /* Shared */,
+				70006EC28E6AAA82039112C4 /* Watch */,
+				519D889B2CE2024B7B406DE3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		519D889B2CE2024B7B406DE3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				57A83F06FC6081C07A68F732 /* PingPongPhone.app */,
+				751A8C3BE6C8CDB624C22C8F /* PingPongWatch.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		66E14C00157CA6F2042BD99C /* Phone */ = {
+			isa = PBXGroup;
+			children = (
+				BC46EA107B9FFFD4DB5B301F /* PhoneApp.swift */,
+				1CA28AF9A1B6186E5E908848 /* PhoneContentView.swift */,
+				13131278D3DF92A9A28A76C3 /* PhoneViewModel.swift */,
+			);
+			name = Phone;
+			path = PingPong/Phone;
+			sourceTree = "<group>";
+		};
+		70006EC28E6AAA82039112C4 /* Watch */ = {
+			isa = PBXGroup;
+			children = (
+				79DEB30E04CE67C6F724A313 /* WatchApp.swift */,
+				632B2CEA13BEC9198C5DC1F4 /* WatchContentView.swift */,
+				3837C9B18DA3BE1A29C6C900 /* WatchViewModel.swift */,
+			);
+			name = Watch;
+			path = PingPong/Watch;
+			sourceTree = "<group>";
+		};
+		78D949B06BCFD80980D0D2EE /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				92297865A41D8E56B846DC4C /* BLEConstants.swift */,
+				6F357747D38F0D3CE80BEDB3 /* Messages.swift */,
+			);
+			name = Shared;
+			path = PingPong/Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1A06A4423024879E57DAC000 /* PingPongPhone */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DE20578E618DBD43EDDAF47 /* Build configuration list for PBXNativeTarget "PingPongPhone" */;
+			buildPhases = (
+				0976CEFF199A1DE1BDBCC9D1 /* Sources */,
+				23DD42863046EC31479ED6FC /* Frameworks */,
+				FEB991ADF745864C5EC26BDA /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				647D3DC49DEC51545D789A3F /* PBXTargetDependency */,
+			);
+			name = PingPongPhone;
+			packageProductDependencies = (
+				0C4B801C3D7DD72DF500C312 /* WatchLinkHost */,
+				E61291B70D83F8ED0DEFC380 /* WatchLinkCore */,
+			);
+			productName = PingPongPhone;
+			productReference = 57A83F06FC6081C07A68F732 /* PingPongPhone.app */;
+			productType = "com.apple.product-type.application";
+		};
+		EC7FECB64FEA692F3A2F01D3 /* PingPongWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9E0C3AFF5C886B4174A55836 /* Build configuration list for PBXNativeTarget "PingPongWatch" */;
+			buildPhases = (
+				6E25393218D2B6611DAF9D5F /* Sources */,
+				9E42CA51925C997ECF945842 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PingPongWatch;
+			packageProductDependencies = (
+				7964AC846436F61DA647598E /* WatchLink */,
+				FD8CEC827D3CF282F8059C45 /* WatchLinkCore */,
+			);
+			productName = PingPongWatch;
+			productReference = 751A8C3BE6C8CDB624C22C8F /* PingPongWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A05EAC62C906FCEF347F74DB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = 72303C9EBB5BC2907B912620 /* Build configuration list for PBXProject "PingPong" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 4AA4E57B2E43546BAE5D0835;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				90009FBA0E609A0297E9DF9C /* XCLocalSwiftPackageReference "../.." */,
+			);
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1A06A4423024879E57DAC000 /* PingPongPhone */,
+				EC7FECB64FEA692F3A2F01D3 /* PingPongWatch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0976CEFF199A1DE1BDBCC9D1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F0B3B57543D05EF52EEC4721 /* BLEConstants.swift in Sources */,
+				1032DB7A4616D66218CFE20B /* Messages.swift in Sources */,
+				D8959C0295A72344D10C0F81 /* PhoneApp.swift in Sources */,
+				795CA8AC8383895DB4AB81B0 /* PhoneContentView.swift in Sources */,
+				BD500DA1854FC1CFD85EA84E /* PhoneViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6E25393218D2B6611DAF9D5F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C18A860063B1BD7E742C7CB9 /* BLEConstants.swift in Sources */,
+				D139A1196E5430292BF8EB63 /* Messages.swift in Sources */,
+				C1544FD670E7B64AAC48B256 /* WatchApp.swift in Sources */,
+				BBD8450C2A4F10ABCE2A4EDD /* WatchContentView.swift in Sources */,
+				812DBC55D39E2F3B995E8A2C /* WatchViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		647D3DC49DEC51545D789A3F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EC7FECB64FEA692F3A2F01D3 /* PingPongWatch */;
+			targetProxy = 56B801790E981A83D2AD3233 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4BCCF73B8C78666F39D6BA06 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = WMBX82S7X4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "WatchLink uses Bluetooth to discover the paired Apple Watch";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "WatchLink uses the local network to communicate with Apple Watch";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.watchlink.example.PingPongPhone;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6A248ED9C0536198ABBDA968 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = WMBX82S7X4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "WatchLink uses Bluetooth to discover the paired Apple Watch";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "WatchLink uses the local network to communicate with Apple Watch";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.watchlink.example.PingPongPhone;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A15F901191FCEB0A04E2C446 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = WMBX82S7X4;
+				INFOPLIST_FILE = PingPong/Watch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.watchlink.example.PingPongPhone.watchapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Release;
+		};
+		B2F02C984AECB9B0F282D892 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = WMBX82S7X4;
+				INFOPLIST_FILE = PingPong/Watch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = com.watchlink.example.PingPongPhone.watchapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = 4;
+			};
+			name = Debug;
+		};
+		B4279F3D17D784805BEC63AD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		DB6486E85A70D777DB0B421C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5DE20578E618DBD43EDDAF47 /* Build configuration list for PBXNativeTarget "PingPongPhone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4BCCF73B8C78666F39D6BA06 /* Debug */,
+				6A248ED9C0536198ABBDA968 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		72303C9EBB5BC2907B912620 /* Build configuration list for PBXProject "PingPong" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B4279F3D17D784805BEC63AD /* Debug */,
+				DB6486E85A70D777DB0B421C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9E0C3AFF5C886B4174A55836 /* Build configuration list for PBXNativeTarget "PingPongWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B2F02C984AECB9B0F282D892 /* Debug */,
+				A15F901191FCEB0A04E2C446 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		90009FBA0E609A0297E9DF9C /* XCLocalSwiftPackageReference "../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0C4B801C3D7DD72DF500C312 /* WatchLinkHost */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchLinkHost;
+		};
+		7964AC846436F61DA647598E /* WatchLink */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchLink;
+		};
+		E61291B70D83F8ED0DEFC380 /* WatchLinkCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchLinkCore;
+		};
+		FD8CEC827D3CF282F8059C45 /* WatchLinkCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WatchLinkCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A05EAC62C906FCEF347F74DB /* Project object */;
+}
