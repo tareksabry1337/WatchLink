@@ -88,12 +88,12 @@ struct WCTransportTests {
         let payload = Data("incoming".utf8)
         await transport.handleIncoming(payload)
 
-        let received: Data = try await withTimeout(.seconds(1)) {
-            for await data in stream { return data }
+        let received: IncomingMessage = try await withTimeout(.seconds(1)) {
+            for await msg in stream { return msg }
             throw StreamEndedError()
         }
 
-        #expect(received == payload)
+        #expect(received.data == payload)
     }
 
     @Test("stop finishes incoming stream")

@@ -2,21 +2,21 @@ import Foundation
 import CoreBluetooth
 import WatchLinkCore
 
-public actor BLEAdvertiser {
+package actor BLEAdvertiser {
     private let serviceUUID: CBUUID
     private let ipCharacteristicUUID: CBUUID
     private let delegate: PeripheralDelegate
     private let peripheralManager: CBPeripheralManager
     private var ipCharacteristic: CBMutableCharacteristic?
 
-    public init(serviceUUID: UUID, ipCharacteristicUUID: UUID) {
+    package init(serviceUUID: UUID, ipCharacteristicUUID: UUID) {
         self.serviceUUID = CBUUID(nsuuid: serviceUUID)
         self.ipCharacteristicUUID = CBUUID(nsuuid: ipCharacteristicUUID)
         self.delegate = PeripheralDelegate()
         self.peripheralManager = CBPeripheralManager(delegate: delegate, queue: nil)
     }
 
-    public func startAdvertising(ip: String) {
+    package func startAdvertising(ip: String) {
         let serviceCBUUID = serviceUUID
         let ipCBUUID = ipCharacteristicUUID
         let ipData = Data(ip.utf8)
@@ -57,12 +57,12 @@ public actor BLEAdvertiser {
         }
     }
 
-    public func stopAdvertising() {
+    package func stopAdvertising() {
         peripheralManager.stopAdvertising()
         peripheralManager.removeAllServices()
     }
 
-    public func updateIP(_ ip: String) {
+    package func updateIP(_ ip: String) {
         guard let characteristic = ipCharacteristic else { return }
         let data = Data(ip.utf8)
         peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: nil)

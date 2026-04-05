@@ -2,36 +2,36 @@ import Foundation
 import Network
 import WatchLinkCore
 
-public actor HTTPServer: Transport {
+package actor HTTPServer: Transport {
     private let port: UInt16
     private let heartbeatInterval: Duration
     private let clock: AnyClock
     private var listener: NWListener?
-    private var incomingContinuation: AsyncStream<Data>.Continuation?
+    private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
     private var sseClients: [UUID: NWConnection] = [:]
     private var heartbeatTask: Task<Void, Never>?
     private var _isReachable = false
 
-    public var isReachable: Bool { _isReachable }
+    package var isReachable: Bool { _isReachable }
 
-    public var reachabilityChanges: AsyncStream<Bool> {
+    package var reachabilityChanges: AsyncStream<Bool> {
         AsyncStream { continuation in
             reachabilityContinuation = continuation
         }
     }
 
-    public var localIP: String? {
+    package var localIP: String? {
         NetworkUtils.localIPAddress()
     }
 
-    public init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(ContinuousClock())) {
+    package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(ContinuousClock())) {
         self.port = port
         self.heartbeatInterval = heartbeatInterval
         self.clock = clock
     }
 
-    public func start() async {
+    package func start() async {
         do {
             guard let nwPort = NWEndpoint.Port(rawValue: port) else {
                 throw WatchLinkError.serverStartFailed("Invalid port: \(port)")
@@ -65,7 +65,7 @@ public actor HTTPServer: Transport {
         }
     }
 
-    public func stop() async {
+    package func stop() async {
         heartbeatTask?.cancel()
         heartbeatTask = nil
         listener?.cancel()
@@ -79,11 +79,11 @@ public actor HTTPServer: Transport {
         reachabilityContinuation?.finish()
     }
 
-    public func send(_ data: Data) async throws {
+    package func send(_ data: Data) async throws {
         pushSSEEvent(data)
     }
 
-    public func incoming() -> AsyncStream<Data> {
+    package func incoming() -> AsyncStream<IncomingMessage> {
         AsyncStream { continuation in
             incomingContinuation = continuation
         }
@@ -141,7 +141,7 @@ public actor HTTPServer: Transport {
         switch request.route {
         case .message:
             if let body = request.body {
-                incomingContinuation?.yield(body)
+                incomingContinuation?.yield(IncomingMessage(data: body))
             }
             respond(status: .ok, on: connection)
 

@@ -6,8 +6,8 @@ public actor MockTransport: Transport {
     public private(set) var sentData: [Data] = []
     public var shouldFailOnSend = false
 
-    private let dataStream: AsyncStream<Data>
-    private let dataContinuation: AsyncStream<Data>.Continuation
+    private let dataStream: AsyncStream<IncomingMessage>
+    private let dataContinuation: AsyncStream<IncomingMessage>.Continuation
     private let reachabilityStream: AsyncStream<Bool>
     private let reachabilityContinuation: AsyncStream<Bool>.Continuation
     private let sentStream: AsyncStream<Data>
@@ -22,7 +22,7 @@ public actor MockTransport: Transport {
     }
 
     public init() {
-        let (dataStream, dataContinuation) = AsyncStream<Data>.makeStream()
+        let (dataStream, dataContinuation) = AsyncStream<IncomingMessage>.makeStream()
         self.dataStream = dataStream
         self.dataContinuation = dataContinuation
 
@@ -43,7 +43,7 @@ public actor MockTransport: Transport {
         sentContinuation.yield(data)
     }
 
-    public func incoming() -> AsyncStream<Data> {
+    public func incoming() -> AsyncStream<IncomingMessage> {
         dataStream
     }
 
@@ -54,8 +54,8 @@ public actor MockTransport: Transport {
         sentContinuation.finish()
     }
 
-    public func simulateIncoming(_ data: Data) {
-        dataContinuation.yield(data)
+    public func simulateIncoming(_ data: Data, replyHandler: (@Sendable (Data) -> Void)? = nil) {
+        dataContinuation.yield(IncomingMessage(data: data, replyHandler: replyHandler))
     }
 
     public func finishIncoming() {

@@ -2,13 +2,13 @@ import Foundation
 @preconcurrency import CoreBluetooth
 import WatchLinkCore
 
-public actor BLEDiscovery {
+package actor BLEDiscovery {
     private let serviceUUID: CBUUID
     private let ipCharacteristicUUID: CBUUID
     private let delegate: CentralDelegate
     private let centralManager: CBCentralManager
 
-    public init(
+    package init(
         serviceUUID: UUID,
         ipCharacteristicUUID: UUID
     ) {
@@ -18,7 +18,7 @@ public actor BLEDiscovery {
         self.centralManager = CBCentralManager(delegate: delegate, queue: nil)
     }
 
-    public func startScanning() -> AsyncStream<String> {
+    package func startScanning() -> AsyncStream<String> {
         let serviceCBUUID = serviceUUID
         let ipCBUUID = ipCharacteristicUUID
         let manager = centralManager
@@ -49,7 +49,7 @@ public actor BLEDiscovery {
         }
     }
 
-    public func stopScanning() {
+    package func stopScanning() {
         centralManager.stopScan()
     }
 }

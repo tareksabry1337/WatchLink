@@ -33,6 +33,14 @@ public func firstValue<T: Sendable>(
     }
 }
 
+public func firstMessage<M: WatchLinkMessage>(
+    from stream: AsyncStream<ReceivedMessage<M>>,
+    timeout: Duration = .seconds(2)
+) async throws -> M {
+    let received = try await firstValue(from: stream, timeout: timeout)
+    return received.value
+}
+
 public actor AsyncCollector<T: Sendable> {
     public private(set) var values: [T] = []
     public var count: Int { values.count }

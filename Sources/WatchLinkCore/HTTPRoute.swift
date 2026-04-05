@@ -1,9 +1,9 @@
-public enum HTTPRoute: Sendable, Equatable {
+package enum HTTPRoute: Sendable, Equatable {
     case message
     case events
     case health
 
-    public var path: String {
+    package var path: String {
         switch self {
         case .message: "/message"
         case .events: "/events"
@@ -11,7 +11,7 @@ public enum HTTPRoute: Sendable, Equatable {
         }
     }
 
-    public var method: HTTPMethod {
+    package var method: HTTPMethod {
         switch self {
         case .message: .post
         case .events: .get
@@ -19,7 +19,7 @@ public enum HTTPRoute: Sendable, Equatable {
         }
     }
 
-    public init?(method: HTTPMethod, path: String) {
+    package init?(method: HTTPMethod, path: String) {
         switch (method, path) {
         case (.post, "/message"): self = .message
         case (.get, "/events"): self = .events

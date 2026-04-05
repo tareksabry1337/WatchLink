@@ -87,7 +87,7 @@ struct TransportCoordinatorTests {
         let result: PingMessage = try await withTimeout(.seconds(2)) {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(wireData)
-            for await msg in stream { return msg }
+            for await msg in stream { return msg.value }
             throw StreamEndedError()
         }
 
@@ -108,7 +108,7 @@ struct TransportCoordinatorTests {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(pongFrame)
             await transport.simulateIncoming(pingFrame)
-            for await msg in stream { return msg }
+            for await msg in stream { return msg.value }
             throw StreamEndedError()
         }
 
@@ -137,7 +137,7 @@ struct TransportCoordinatorTests {
 
             var collected: [PingMessage] = []
             for await msg in stream {
-                collected.append(msg)
+                collected.append(msg.value)
                 if collected.count == 2 { break }
             }
             return collected
@@ -164,11 +164,11 @@ struct TransportCoordinatorTests {
         await transport.simulateIncoming(wireData)
 
         let r1: PingMessage = try await withTimeout(.seconds(2)) {
-            for await msg in stream1 { return msg }
+            for await msg in stream1 { return msg.value }
             throw StreamEndedError()
         }
         let r2: PingMessage = try await withTimeout(.seconds(2)) {
-            for await msg in stream2 { return msg }
+            for await msg in stream2 { return msg.value }
             throw StreamEndedError()
         }
 
@@ -220,7 +220,7 @@ struct TransportCoordinatorTests {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(controlData)
             await transport.simulateIncoming(messageData)
-            for await msg in stream { return msg }
+            for await msg in stream { return msg.value }
             throw StreamEndedError()
         }
 

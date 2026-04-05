@@ -48,6 +48,7 @@ public final class WatchLink: Sendable {
             sweepInterval: config.sweepInterval,
             logger: config.logger
         )
+        
         self.connectionManager = ConnectionManager(coordinator: coordinator, config: config)
     }
 
@@ -75,7 +76,11 @@ public final class WatchLink: Sendable {
         try await coordinator.send(message)
     }
 
-    public func messages<M: WatchLinkMessage>(_ type: M.Type) async -> AsyncStream<M> {
+    public func reply<R: WatchLinkMessage>(to received: ReceivedMessage<some WatchLinkMessage>, with message: R) async throws {
+        try await coordinator.reply(toFrameID: received.frameID, with: message)
+    }
+
+    public func messages<M: WatchLinkMessage>(_ type: M.Type) async -> AsyncStream<ReceivedMessage<M>> {
         await coordinator.messages(type)
     }
 

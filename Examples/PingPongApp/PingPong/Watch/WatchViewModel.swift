@@ -59,8 +59,8 @@ final class WatchViewModel {
     private func listenForPongs() async {
         for await pong in await link.messages(Pong.self) {
             pongCount += 1
-            lastRoundTripMs = pong.roundTripMs
-            addLog("Pong #\(pong.count) (\(pong.roundTripMs)ms)")
+            lastRoundTripMs = pong.value.roundTripMs
+            addLog("Pong #\(pong.value.count) (\(pong.value.roundTripMs)ms)")
         }
     }
 

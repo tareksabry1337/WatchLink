@@ -2,37 +2,37 @@ import Foundation
 import WatchConnectivity
 import WatchLinkCore
 
-public actor WCTransport: Transport {
+package actor WCTransport: Transport {
     private let session: any WCSessionProtocol
-    private var incomingContinuation: AsyncStream<Data>.Continuation?
+    private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
 
-    public var isReachable: Bool {
+    package var isReachable: Bool {
         session.isActivatedAndReachable
     }
 
-    public var reachabilityChanges: AsyncStream<Bool> {
+    package var reachabilityChanges: AsyncStream<Bool> {
         AsyncStream { continuation in
             reachabilityContinuation = continuation
         }
     }
 
-    public init(session: any WCSessionProtocol) {
+    package init(session: any WCSessionProtocol) {
         self.session = session
     }
 
-    public func start() async {
+    package func start() async {
         session.activate()
     }
 
-    public func stop() async {
+    package func stop() async {
         incomingContinuation?.finish()
         incomingContinuation = nil
         reachabilityContinuation?.finish()
         reachabilityContinuation = nil
     }
 
-    public func send(_ data: Data) async throws {
+    package func send(_ data: Data) async throws {
         guard isReachable else {
             throw WatchLinkError.sendFailed("WCSession not reachable")
         }
@@ -46,14 +46,14 @@ public actor WCTransport: Transport {
         }
     }
 
-    public func incoming() -> AsyncStream<Data> {
+    package func incoming() -> AsyncStream<IncomingMessage> {
         AsyncStream { continuation in
             incomingContinuation = continuation
         }
     }
 
-    func handleIncoming(_ data: Data) {
-        incomingContinuation?.yield(data)
+    func handleIncoming(_ data: Data, replyHandler: (@Sendable (Data) -> Void)? = nil) {
+        incomingContinuation?.yield(IncomingMessage(data: data, replyHandler: replyHandler))
     }
 
     func handleReachabilityChanged(_ reachable: Bool) {
@@ -62,7 +62,7 @@ public actor WCTransport: Transport {
 }
 
 extension WCSession: WCSessionProtocol {
-    public var isActivatedAndReachable: Bool {
+    package var isActivatedAndReachable: Bool {
         activationState == .activated && isReachable
     }
 }
@@ -70,7 +70,7 @@ extension WCSession: WCSessionProtocol {
 public final class WCSessionBridge: NSObject, WCSessionDelegate, @unchecked Sendable {
     private weak var transport: WCTransport?
 
-    public init(transport: WCTransport, session: WCSession = .default) {
+    package init(transport: WCTransport, session: WCSession = .default) {
         self.transport = transport
         super.init()
         session.delegate = self
@@ -112,9 +112,10 @@ public final class WCSessionBridge: NSObject, WCSessionDelegate, @unchecked Send
         didReceiveMessageData messageData: Data,
         replyHandler: @escaping (Data) -> Void
     ) {
+        nonisolated(unsafe) let reply = replyHandler
+        let sendableReply: @Sendable (Data) -> Void = { data in reply(data) }
         Task { [weak transport] in
-            await transport?.handleIncoming(messageData)
+            await transport?.handleIncoming(messageData, replyHandler: sendableReply)
         }
-        replyHandler(Data())
     }
 }

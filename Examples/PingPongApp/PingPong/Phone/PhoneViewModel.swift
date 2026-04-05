@@ -37,13 +37,13 @@ final class PhoneViewModel {
     private func listenForPings() async {
         for await ping in await host.messages(Ping.self) {
             pingCount += 1
-            lastPingValue = ping.count
-            addLog("Ping #\(ping.count)")
+            lastPingValue = ping.value.count
+            addLog("Ping #\(ping.value.count)")
 
-            let roundTrip = Int(Date().timeIntervalSince(ping.sentAt) * 1000)
+            let roundTrip = Int(Date().timeIntervalSince(ping.value.sentAt) * 1000)
             do {
-                try await host.send(Pong(count: ping.count, roundTripMs: roundTrip))
-                addLog("Pong #\(ping.count) (\(roundTrip)ms)")
+                try await host.reply(to: ping, with: Pong(count: ping.value.count, roundTripMs: roundTrip))
+                addLog("Pong #\(ping.value.count) (\(roundTrip)ms)")
             } catch {
                 addLog("Pong failed: \(error)")
             }
@@ -52,8 +52,8 @@ final class PhoneViewModel {
 
     private func listenForHeartRates() async {
         for await hr in await host.messages(HeartRate.self) {
-            heartRateBPM = hr.bpm
-            addLog("HR: \(hr.bpm) bpm")
+            heartRateBPM = hr.value.bpm
+            addLog("HR: \(hr.value.bpm) bpm")
         }
     }
 

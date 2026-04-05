@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol WCSessionProtocol {
+package protocol WCSessionProtocol {
     var isActivatedAndReachable: Bool { get }
     func activate()
     func sendMessageData(

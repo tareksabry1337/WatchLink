@@ -1,4 +1,4 @@
-public enum ControlFrame: Codable, Sendable {
+package enum ControlFrame: Codable, Sendable {
     case ping
     case pong
 }

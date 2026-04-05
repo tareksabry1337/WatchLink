@@ -1,23 +1,23 @@
 import Foundation
 import WatchLinkCore
 
-public actor HTTPTransport: Transport {
+package actor HTTPTransport: Transport {
     private let port: UInt16
     private nonisolated(unsafe) let urlSession: any URLSessionProtocol
     private var serverIP: String?
-    private var incomingContinuation: AsyncStream<Data>.Continuation?
+    private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private let reachabilityStream: AsyncStream<Bool>
     private let reachabilityContinuation: AsyncStream<Bool>.Continuation
     private var sseTask: Task<Void, Never>?
     private var _isReachable = false
 
-    public var isReachable: Bool { _isReachable }
+    package var isReachable: Bool { _isReachable }
 
-    public var reachabilityChanges: AsyncStream<Bool> {
+    package var reachabilityChanges: AsyncStream<Bool> {
         reachabilityStream
     }
 
-    public init(port: UInt16, urlSession: any URLSessionProtocol = URLSession.shared) {
+    package init(port: UInt16, urlSession: any URLSessionProtocol = URLSession.shared) {
         self.port = port
         self.urlSession = urlSession
 
@@ -26,22 +26,22 @@ public actor HTTPTransport: Transport {
         self.reachabilityContinuation = continuation
     }
 
-    public func updateServerIP(_ ip: String) {
+    package func updateServerIP(_ ip: String) {
         serverIP = ip
         _isReachable = true
         reachabilityContinuation.yield(true)
     }
 
-    public func clearServerIP() {
+    package func clearServerIP() {
         serverIP = nil
         _isReachable = false
         reachabilityContinuation.yield(false)
         sseTask?.cancel()
     }
 
-    public func start() async {}
+    package func start() async {}
 
-    public func stop() async {
+    package func stop() async {
         sseTask?.cancel()
         sseTask = nil
         incomingContinuation?.finish()
@@ -50,7 +50,7 @@ public actor HTTPTransport: Transport {
         _isReachable = false
     }
 
-    public func send(_ data: Data) async throws {
+    package func send(_ data: Data) async throws {
         guard let url = url(for: .message) else {
             throw WatchLinkError.sendFailed("No server IP")
         }
@@ -67,7 +67,7 @@ public actor HTTPTransport: Transport {
         }
     }
 
-    public func incoming() -> AsyncStream<Data> {
+    package func incoming() -> AsyncStream<IncomingMessage> {
         AsyncStream { continuation in
             incomingContinuation = continuation
             sseTask = Task { [weak self] in
@@ -77,7 +77,7 @@ public actor HTTPTransport: Transport {
         }
     }
 
-    private func listenSSE(continuation: AsyncStream<Data>.Continuation) async {
+    private func listenSSE(continuation: AsyncStream<IncomingMessage>.Continuation) async {
         while !Task.isCancelled {
             guard let url = url(for: .events) else {
                 return
@@ -92,7 +92,7 @@ public actor HTTPTransport: Transport {
                 for try await line in bytes.lines {
                     guard line.hasPrefix("data: ") else { continue }
                     let payload = Data(line.dropFirst(6).utf8)
-                    continuation.yield(payload)
+                    continuation.yield(IncomingMessage(data: payload))
                 }
             } catch {
                 if Task.isCancelled { return }
