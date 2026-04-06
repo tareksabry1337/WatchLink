@@ -23,27 +23,19 @@ struct SweepTests {
         let msg1 = try await firstMessage(from: stream)
         #expect(msg1.count == 1)
 
-        // Send duplicate — should be deduped
         await transport.simulateIncoming(encodedFirst)
 
-        // Advance past sweep interval — clears dedup set
         clock.advance(by: .seconds(30))
 
-        // Same message again — should now be delivered since sweep cleared IDs
-        // Send a unique marker after the duplicate so we know the sweep happened
         let markerMessage = try encodeFrame(PingMessage(count: 999))
         await transport.simulateIncoming(encodedFirst)
         await transport.simulateIncoming(markerMessage)
 
-        // If sweep happened: we get count=1 then count=999
-        // If sweep didn't happen: we only get count=999 (count=1 is still deduped)
         let next = try await firstMessage(from: stream)
         if next.count == 1 {
-            // Sweep worked — the duplicate was re-delivered
             let marker = try await firstMessage(from: stream)
             #expect(marker.count == 999)
         } else {
-            // Sweep hasn't run yet — that's OK, it's async
             #expect(next.count == 999)
         }
 
@@ -104,10 +96,8 @@ struct SweepTests {
         let first = try await firstMessage(from: stream)
         #expect(first.count == 1)
 
-        // Advance only halfway — sweep should NOT run
         clock.advance(by: .seconds(15))
 
-        // Send duplicate + unique — only unique should arrive
         await transport.simulateIncoming(frame)
         await transport.simulateIncoming(uniqueFrame)
 

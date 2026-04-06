@@ -9,6 +9,7 @@ package actor TransportCoordinator {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private var seenIDs: Set<String> = []
+    private var ackedIDs: Set<String> = []
     private var sweepTask: Task<Void, Never>?
     private var reachabilityTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
@@ -102,6 +103,42 @@ package actor TransportCoordinator {
         await sendOrWait(data)
     }
 
+    package func send<M: WatchLinkMessage>(_ message: M, replyingTo frameID: String) async throws {
+        let data = try encoder.encode(message)
+        for transport in transports {
+            await transport.respondToQuery(frameID: frameID, data: data)
+        }
+    }
+
+    package func query<Q: WatchLinkQuery>(
+        _ query: Q,
+        timeout: Duration = .seconds(30)
+    ) async throws -> Q.Response {
+        let frame = try Frame(wrapping: query, encoder: encoder)
+        let data = try encoder.encode(frame)
+        unackedMessages[frame.id] = UnackedEntry(data: data)
+        logger.debug("Query \(frame.id) on \(Q.channel)")
+
+        let responseData = try await withThrowingTaskGroup(of: Data.self) { group in
+            for transport in transports {
+                group.addTask {
+                    try await transport.query(data)
+                }
+            }
+
+            group.addTask { [clock] in
+                try await clock.sleep(for: timeout)
+                throw WatchLinkError.queryTimedOut
+            }
+
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+
+        return try decoder.decode(Q.Response.self, from: responseData)
+    }
+
     package func sendControl(_ frame: ControlFrame) async throws {
         let f = try Frame(control: frame, encoder: encoder)
         let data = try encoder.encode(f)
@@ -131,7 +168,6 @@ package actor TransportCoordinator {
         return false
     }
 
-    /// Attempt to send now if any transport is reachable; otherwise the retry loop will pick it up.
     private func sendOrWait(_ data: Data) async {
         var reachable: [any Transport] = []
         for transport in transports {
@@ -227,9 +263,7 @@ package actor TransportCoordinator {
         }
     }
 
-    private var ackedIDs: Set<String> = []
-
-    private func route(_ incoming: IncomingMessage) {
+    private func route(_ incoming: IncomingMessage) async {
         let frame: Frame
         do {
             frame = try decoder.decode(Frame.self, from: incoming.data)
@@ -266,15 +300,14 @@ package actor TransportCoordinator {
 
             if !ackedIDs.contains(frame.id) {
                 ackedIDs.insert(frame.id)
-                Task { [weak self] in
-                    try? await self?.sendControl(.ack(frame.id))
-                }
+                try? await sendControl(.ack(frame.id))
             }
 
             guard dedup(frame.id) else {
                 logger.debug("Dedup dropped \(frame.id)")
                 return
             }
+
             guard let channelSubs = subscriptions[channel] else { return }
             for (_, callback) in channelSubs {
                 callback(frame.payload, frame.id)

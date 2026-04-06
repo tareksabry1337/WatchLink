@@ -89,6 +89,30 @@ package actor HTTPTransport: Transport {
         logger.debug("HTTP: POST succeeded")
     }
 
+    package func respondToQuery(frameID: String, data: Data) async {}
+
+    package func query(_ data: Data) async throws -> Data {
+        guard let url = url(for: .query) else {
+            throw WatchLinkError.sendFailed("No server IP")
+        }
+
+        logger.debug("HTTP: POST /query (\(data.count) bytes)")
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPRoute.query.method.rawValue
+        request.httpBody = data
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+
+        let (responseData, response) = try await urlSession.data(for: request, delegate: nil)
+
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            logger.warning("HTTP: query failed with \(code)")
+            throw WatchLinkError.sendFailed("HTTP \(code)")
+        }
+        logger.debug("HTTP: query response received (\(responseData.count) bytes)")
+        return responseData
+    }
+
     package func incoming() -> AsyncStream<IncomingMessage> {
         AsyncStream { continuation in
             incomingContinuation = continuation

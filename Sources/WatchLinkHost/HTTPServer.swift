@@ -16,6 +16,7 @@ package actor HTTPServer: Transport {
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
     private var sseClients: [UUID: SSEClient] = [:]
+    private var pendingQueryConnections: [String: NWConnection] = [:]
     private var heartbeatTask: Task<Void, Never>?
     private var _isReachable = false
 
@@ -84,6 +85,10 @@ package actor HTTPServer: Transport {
             client.connection.cancel()
         }
         sseClients.removeAll()
+        for (_, connection) in pendingQueryConnections {
+            connection.cancel()
+        }
+        pendingQueryConnections.removeAll()
     }
 
     package func stop() async {
@@ -159,6 +164,14 @@ package actor HTTPServer: Transport {
             }
             respond(status: .ok, on: connection)
 
+        case .query:
+            logger.debug("HTTP server: POST /query (\(request.body?.count ?? 0) bytes)")
+            if let body = request.body {
+                handleQueryRequest(body: body, connection: connection)
+            } else {
+                respond(status: .notFound, on: connection)
+            }
+
         case .events:
             logger.info("HTTP server: SSE client connecting")
             startSSEStream(on: connection)
@@ -170,6 +183,29 @@ package actor HTTPServer: Transport {
             logger.warning("HTTP server: unknown route")
             respond(status: .notFound, on: connection)
         }
+    }
+
+    private func handleQueryRequest(body: Data, connection: NWConnection) {
+        guard let frame = try? JSONDecoder().decode(Frame.self, from: body) else {
+            logger.warning("HTTP server: failed to decode query frame")
+            respond(status: .notFound, on: connection)
+            return
+        }
+        let frameID = frame.id
+
+        pendingQueryConnections[frameID] = connection
+        logger.debug("HTTP server: holding query connection for \(frameID)")
+        incomingContinuation?.yield(IncomingMessage(data: body))
+    }
+
+    package func respondToQuery(frameID: String, data: Data) {
+        guard let connection = pendingQueryConnections.removeValue(forKey: frameID) else {
+            logger.debug("HTTP server: no pending query connection for \(frameID)")
+            return
+        }
+
+        logger.debug("HTTP server: responding to query \(frameID) (\(data.count) bytes)")
+        respond(status: .ok, body: data, on: connection)
     }
 
     private func startSSEStream(on connection: NWConnection) {

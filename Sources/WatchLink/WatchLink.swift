@@ -78,6 +78,14 @@ public final class WatchLink: Sendable {
         try await coordinator.send(message)
     }
 
+    public func send<M: WatchLinkMessage>(_ message: M, replyingTo received: ReceivedMessage<some WatchLinkMessage>) async throws {
+        try await coordinator.send(message, replyingTo: received.frameID)
+    }
+
+    public func query<Q: WatchLinkQuery>(_ query: Q, timeout: Duration = .seconds(30)) async throws -> Q.Response {
+        try await coordinator.query(query, timeout: timeout)
+    }
+
     public func messages<M: WatchLinkMessage>(_ type: M.Type) async -> AsyncStream<ReceivedMessage<M>> {
         await coordinator.messages(type)
     }

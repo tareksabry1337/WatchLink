@@ -6,6 +6,7 @@ package actor WCHostTransport: Transport {
     private let session: any WCSessionProtocol
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
+    private var pendingReplyHandlers: [String: @Sendable (Data) -> Void] = [:]
 
     package var isReachable: Bool {
         session.isActivatedAndReachable
@@ -30,6 +31,7 @@ package actor WCHostTransport: Transport {
         incomingContinuation = nil
         reachabilityContinuation?.finish()
         reachabilityContinuation = nil
+        pendingReplyHandlers.removeAll()
     }
 
     package func send(_ data: Data) async throws {
@@ -40,6 +42,26 @@ package actor WCHostTransport: Transport {
         session.sendMessageData(data, replyHandler: nil, errorHandler: nil)
     }
 
+    package func query(_ data: Data) async throws -> Data {
+        guard isReachable else {
+            throw WatchLinkError.sendFailed("WCSession not reachable")
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            session.sendMessageData(data, replyHandler: { responseData in
+                continuation.resume(returning: responseData)
+            }, errorHandler: { error in
+                continuation.resume(throwing: WatchLinkError.sendFailed(error.localizedDescription))
+            })
+        }
+    }
+
+    package func respondToQuery(frameID: String, data: Data) {
+        if let handler = pendingReplyHandlers.removeValue(forKey: frameID) {
+            handler(data)
+        }
+    }
+
     package func incoming() -> AsyncStream<IncomingMessage> {
         AsyncStream { continuation in
             incomingContinuation = continuation
@@ -47,6 +69,13 @@ package actor WCHostTransport: Transport {
     }
 
     func handleIncoming(_ data: Data) {
+        incomingContinuation?.yield(IncomingMessage(data: data))
+    }
+
+    func handleIncoming(_ data: Data, wcReplyHandler: @escaping @Sendable (Data) -> Void) {
+        if let frame = try? JSONDecoder().decode(Frame.self, from: data) {
+            pendingReplyHandlers[frame.id] = wcReplyHandler
+        }
         incomingContinuation?.yield(IncomingMessage(data: data))
     }
 
@@ -96,6 +125,18 @@ public final class WCHostSessionBridge: NSObject, WCSessionDelegate, @unchecked 
     public func session(_ session: WCSession, didReceiveMessageData messageData: Data) {
         Task { [weak transport] in
             await transport?.handleIncoming(messageData)
+        }
+    }
+
+    public func session(
+        _ session: WCSession,
+        didReceiveMessageData messageData: Data,
+        replyHandler: @escaping (Data) -> Void
+    ) {
+        nonisolated(unsafe) let reply = replyHandler
+        let sendableReply: @Sendable (Data) -> Void = { data in reply(data) }
+        Task { [weak transport] in
+            await transport?.handleIncoming(messageData, wcReplyHandler: sendableReply)
         }
     }
 }
