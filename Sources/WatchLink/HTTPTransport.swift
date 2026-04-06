@@ -36,6 +36,7 @@ package actor HTTPTransport: Transport {
         serverIP = ip
         _isReachable = true
         reachabilityContinuation.yield(true)
+        resetSSEConnection()
     }
 
     package func resetSSEConnection() {

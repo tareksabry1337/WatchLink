@@ -53,6 +53,7 @@ public final class WatchLinkHost: Sendable {
             transports: transports,
             clock: config.clock,
             sweepInterval: config.sweepInterval,
+            retryInterval: config.retryInterval,
             logger: config.logger
         )
     }
@@ -90,6 +91,7 @@ public final class WatchLinkHost: Sendable {
         d.pendingQueueCount = await coordinator.diagnosticsPendingCount
         d.replyHandlerCount = await coordinator.diagnosticsReplyHandlerCount
         d.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
+        d.unackedCount = await coordinator.diagnosticsUnackedCount
 
         for transport in await coordinator.transports {
             if transport is WCHostTransport {
@@ -151,6 +153,8 @@ public final class WatchLinkHost: Sendable {
                 config.logger.error("Failed to send pong: \(error)")
             }
         case .pong:
+            break
+        case .ack:
             break
         }
     }

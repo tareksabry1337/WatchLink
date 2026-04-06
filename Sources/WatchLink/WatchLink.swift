@@ -49,6 +49,7 @@ public final class WatchLink: Sendable {
             transports: transports,
             clock: config.clock,
             sweepInterval: config.sweepInterval,
+            retryInterval: config.retryInterval,
             logger: config.logger
         )
 
@@ -94,6 +95,7 @@ public final class WatchLink: Sendable {
         d.pendingQueueCount = await coordinator.diagnosticsPendingCount
         d.replyHandlerCount = await coordinator.diagnosticsReplyHandlerCount
         d.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
+        d.unackedCount = await coordinator.diagnosticsUnackedCount
 
         for transport in await coordinator.transports {
             if transport is WCTransport {

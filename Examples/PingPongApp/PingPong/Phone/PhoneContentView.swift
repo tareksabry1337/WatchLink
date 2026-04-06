@@ -78,6 +78,12 @@ struct PhoneContentView: View {
                         Text("\(viewModel.diag.replyHandlerCount)")
                             .font(.body.monospacedDigit())
                     }
+                    HStack {
+                        Text("Unacked")
+                        Spacer()
+                        Text("\(viewModel.diag.unackedCount)")
+                            .font(.body.monospacedDigit())
+                    }
                 }
 
                 Section("IP Discovery") {

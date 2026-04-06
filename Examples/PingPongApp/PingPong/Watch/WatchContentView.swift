@@ -61,7 +61,7 @@ struct WatchContentView: View {
                     }
                     Text("IP: \(viewModel.diag.serverIP ?? "—")")
                         .font(.system(size: 9).monospaced())
-                    Text("Queue: \(viewModel.diag.pendingQueueCount) | IDs: \(viewModel.diag.seenIDsCount)")
+                    Text("Queue: \(viewModel.diag.pendingQueueCount) | Unacked: \(viewModel.diag.unackedCount)")
                         .font(.system(size: 9).monospaced())
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

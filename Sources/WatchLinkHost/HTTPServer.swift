@@ -19,7 +19,7 @@ package actor HTTPServer: Transport {
     private var heartbeatTask: Task<Void, Never>?
     private var _isReachable = false
 
-    package var isReachable: Bool { _isReachable }
+    package var isReachable: Bool { _isReachable && !sseClients.isEmpty }
 
     package var reachabilityChanges: AsyncStream<Bool> {
         AsyncStream { continuation in
