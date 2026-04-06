@@ -59,7 +59,9 @@ public final class WatchLink: Sendable {
     public func connect() async {
         await coordinator.onHeartbeat { [weak self] in
             guard let self else { return }
-            Task { await self.connectionManager.heartbeatReceived() }
+            Task {
+                await self.connectionManager.heartbeatReceived()
+            }
         }
 
         await coordinator.startAll()
@@ -95,16 +97,16 @@ public final class WatchLink: Sendable {
     }
 
     public func diagnostics() async -> WatchLinkDiagnostics {
-        var d = WatchLinkDiagnostics()
-        d.pendingQueueCount = await coordinator.diagnosticsPendingCount
-        d.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
-        d.unackedCount = await coordinator.diagnosticsUnackedCount
+        var diagnostics = WatchLinkDiagnostics()
+        diagnostics.pendingQueueCount = await coordinator.diagnosticsPendingCount
+        diagnostics.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
+        diagnostics.unackedCount = await coordinator.diagnosticsUnackedCount
 
         for transport in await coordinator.transports {
-            await transport.populateDiagnostics(&d)
+            await transport.populateDiagnostics(&diagnostics)
         }
 
-        return d
+        return diagnostics
     }
 
     private func startBLEDiscovery() {
@@ -125,7 +127,9 @@ public final class WatchLink: Sendable {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            Task { await self.httpTransport?.resetSSEConnection() }
+            Task {
+                await self.httpTransport?.resetSSEConnection()
+            }
         }
         #endif
     }

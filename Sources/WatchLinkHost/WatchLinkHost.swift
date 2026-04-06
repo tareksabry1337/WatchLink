@@ -61,7 +61,9 @@ public final class WatchLinkHost: Sendable {
     public func start() async throws {
         await coordinator.onControl { [weak self] frame in
             guard let self else { return }
-            Task { await self.handleControl(frame) }
+            Task {
+                await self.handleControl(frame)
+            }
         }
 
         await coordinator.startAll()
@@ -91,16 +93,16 @@ public final class WatchLinkHost: Sendable {
     }
 
     public func diagnostics() async -> WatchLinkDiagnostics {
-        var d = WatchLinkDiagnostics()
-        d.pendingQueueCount = await coordinator.diagnosticsPendingCount
-        d.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
-        d.unackedCount = await coordinator.diagnosticsUnackedCount
+        var diagnostics = WatchLinkDiagnostics()
+        diagnostics.pendingQueueCount = await coordinator.diagnosticsPendingCount
+        diagnostics.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
+        diagnostics.unackedCount = await coordinator.diagnosticsUnackedCount
 
         for transport in await coordinator.transports {
-            await transport.populateDiagnostics(&d)
+            await transport.populateDiagnostics(&diagnostics)
         }
 
-        return d
+        return diagnostics
     }
 
     @MainActor private func observeAppLifecycle() {
@@ -111,7 +113,9 @@ public final class WatchLinkHost: Sendable {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            Task { await self.handleBackground() }
+            Task {
+                await self.handleBackground()
+            }
         }
 
         NotificationCenter.default.addObserver(
@@ -120,7 +124,9 @@ public final class WatchLinkHost: Sendable {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            Task { await self.handleForeground() }
+            Task {
+                await self.handleForeground()
+            }
         }
         #endif
     }

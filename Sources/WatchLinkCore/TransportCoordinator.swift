@@ -139,9 +139,9 @@ package actor TransportCoordinator {
         return try decoder.decode(Q.Response.self, from: responseData)
     }
 
-    package func sendControl(_ frame: ControlFrame) async throws {
-        let f = try Frame(control: frame, encoder: encoder)
-        let data = try encoder.encode(f)
+    package func sendControl(_ controlFrame: ControlFrame) async throws {
+        let frame = try Frame(control: controlFrame, encoder: encoder)
+        let data = try encoder.encode(frame)
 
         var reachable: [any Transport] = []
         for transport in transports {

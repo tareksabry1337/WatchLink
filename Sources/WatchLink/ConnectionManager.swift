@@ -26,7 +26,9 @@ actor ConnectionManager {
             stateSubscribers[id] = continuation
             continuation.onTermination = { [weak self] _ in
                 guard let self else { return }
-                Task { await self.removeStateSubscriber(id) }
+                Task {
+                    await self.removeStateSubscriber(id)
+                }
             }
         }
     }

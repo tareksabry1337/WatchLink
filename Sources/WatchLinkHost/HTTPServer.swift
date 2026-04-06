@@ -55,7 +55,9 @@ package actor HTTPServer: Transport {
 
             newListener.newConnectionHandler = { [weak self] connection in
                 guard let self else { return }
-                Task { await self.handleConnection(connection) }
+                Task {
+                    await self.handleConnection(connection)
+                }
             }
 
             newListener.stateUpdateHandler = { [weak self] state in
@@ -143,7 +145,9 @@ package actor HTTPServer: Transport {
                 return
             }
 
-            Task { await self.routeRequest(data: buffer, connection: connection) }
+            Task {
+                await self.routeRequest(data: buffer, connection: connection)
+            }
         }
     }
 
@@ -225,7 +229,9 @@ package actor HTTPServer: Transport {
 
         connection.stateUpdateHandler = { [weak self] state in
             if case .cancelled = state {
-                Task { await self?.removeSSEClient(clientID) }
+                Task {
+                    await self?.removeSSEClient(clientID)
+                }
             }
         }
     }
@@ -238,9 +244,13 @@ package actor HTTPServer: Transport {
         for (id, client) in sseClients {
             client.connection.send(content: event, completion: .contentProcessed { [weak self] error in
                 if error != nil {
-                    Task { await self?.removeSSEClient(id) }
+                    Task {
+                        await self?.removeSSEClient(id)
+                    }
                 } else {
-                    Task { await self?.markClientActive(id) }
+                    Task {
+                        await self?.markClientActive(id)
+                    }
                 }
             })
         }
@@ -275,9 +285,13 @@ package actor HTTPServer: Transport {
 
             client.connection.send(content: Data(":heartbeat\n\n".utf8), completion: .contentProcessed { [weak self] error in
                 if error != nil {
-                    Task { await self?.removeSSEClient(id) }
+                    Task {
+                        await self?.removeSSEClient(id)
+                    }
                 } else {
-                    Task { await self?.markClientActive(id) }
+                    Task {
+                        await self?.markClientActive(id)
+                    }
                 }
             })
         }
