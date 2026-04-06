@@ -17,3 +17,14 @@ struct HeartRate: WatchLinkMessage {
     static let channel: Channel = "heartRate"
     let bpm: Int
 }
+
+struct TimeRequest: WatchLinkQuery {
+    typealias Response = TimeResponse
+    static let channel: Channel = "time.request"
+}
+
+struct TimeResponse: WatchLinkMessage {
+    static let channel: Channel = "time.response"
+    let timestamp: Date
+    let label: String
+}

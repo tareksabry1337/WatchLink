@@ -9,6 +9,7 @@ final class WatchViewModel {
     private(set) var pingCount = 0
     private(set) var lastRoundTripMs = 0
     private(set) var pongCount = 0
+    private(set) var phoneTime = "—"
     private(set) var entries: [String] = []
     private(set) var diag = WatchLinkDiagnostics()
 
@@ -46,6 +47,18 @@ final class WatchViewModel {
             addEntry("Sent ping #\(pingCount)")
         } catch {
             addEntry("Ping failed: \(error)")
+        }
+    }
+
+    func queryTime() async {
+        do {
+            let response = try await link.query(TimeRequest())
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm:ss.SSS"
+            phoneTime = formatter.string(from: response.timestamp)
+            addEntry("Phone time: \(phoneTime) (\(response.label))")
+        } catch {
+            addEntry("Time query failed: \(error)")
         }
     }
 

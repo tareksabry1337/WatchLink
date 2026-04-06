@@ -66,7 +66,7 @@ public final class WatchLinkHost: Sendable {
 
         await coordinator.startAll()
         await startBLEAdvertising()
-        observeAppLifecycle()
+        await observeAppLifecycle()
     }
 
     public func stop() async {
@@ -109,12 +109,12 @@ public final class WatchLinkHost: Sendable {
         return d
     }
 
-    private func observeAppLifecycle() {
+    @MainActor private func observeAppLifecycle() {
         #if canImport(UIKit)
         NotificationCenter.default.addObserver(
             forName: UIApplication.didEnterBackgroundNotification,
             object: nil,
-            queue: nil
+            queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             Task { await self.handleBackground() }
@@ -123,7 +123,7 @@ public final class WatchLinkHost: Sendable {
         NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
-            queue: nil
+            queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             Task { await self.handleForeground() }

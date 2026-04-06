@@ -42,8 +42,9 @@ final class PhoneViewModel {
 
         async let pings: Void = listenForPings()
         async let heartRates: Void = listenForHeartRates()
+        async let timeQueries: Void = listenForTimeQueries()
         async let diagLoop: Void = refreshDiagnostics()
-        _ = await (pings, heartRates, diagLoop)
+        _ = await (pings, heartRates, timeQueries, diagLoop)
     }
 
     private func listenForPings() async {
@@ -58,6 +59,21 @@ final class PhoneViewModel {
                 addEntry("Pong #\(ping.value.count) (\(roundTrip)ms)")
             } catch {
                 addEntry("Pong failed: \(error)")
+            }
+        }
+    }
+
+    private func listenForTimeQueries() async {
+        for await request in await host.messages(TimeRequest.self) {
+            addEntry("Time query received")
+            do {
+                try await host.send(
+                    TimeResponse(timestamp: Date(), label: "Phone clock"),
+                    replyingTo: request
+                )
+                addEntry("Time response sent")
+            } catch {
+                addEntry("Time response failed: \(error)")
             }
         }
     }

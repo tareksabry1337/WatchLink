@@ -42,6 +42,16 @@ struct WatchContentView: View {
                         Task { await viewModel.sendHeartRate() }
                     }
                     .font(.caption)
+
+                    Button("Time?") {
+                        Task { await viewModel.queryTime() }
+                    }
+                    .font(.caption)
+                }
+
+                if viewModel.phoneTime != "—" {
+                    Text("Phone: \(viewModel.phoneTime)")
+                        .font(.caption2.monospaced())
                 }
 
                 VStack(alignment: .leading, spacing: 2) {

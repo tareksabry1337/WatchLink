@@ -65,7 +65,7 @@ public final class WatchLink: Sendable {
         await coordinator.startAll()
         startBLEDiscovery()
         await connectionManager.connect()
-        observeAppLifecycle()
+        await observeAppLifecycle()
     }
 
     public func disconnect() async {
@@ -122,12 +122,13 @@ public final class WatchLink: Sendable {
         }
     }
 
+    @MainActor
     private func observeAppLifecycle() {
         #if canImport(WatchKit)
         NotificationCenter.default.addObserver(
             forName: WKApplication.didBecomeActiveNotification,
             object: nil,
-            queue: nil
+            queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             Task { await self.httpTransport?.resetSSEConnection() }

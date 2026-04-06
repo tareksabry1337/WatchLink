@@ -232,7 +232,7 @@ package actor HTTPServer: Transport {
 
         for (id, client) in sseClients {
             client.connection.send(content: event, completion: .contentProcessed { [weak self] error in
-                if let error {
+                if error != nil {
                     Task { await self?.removeSSEClient(id) }
                 } else {
                     Task { await self?.markClientActive(id) }
