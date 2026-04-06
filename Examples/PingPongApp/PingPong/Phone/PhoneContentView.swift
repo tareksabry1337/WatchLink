@@ -39,6 +39,47 @@ struct PhoneContentView: View {
                     }
                 }
 
+                Section("Diagnostics") {
+                    HStack {
+                        Label("WC", systemImage: "antenna.radiowaves.left.and.right")
+                        Spacer()
+                        Circle()
+                            .fill(viewModel.diag.wcReachable ? .green : .red)
+                            .frame(width: 10, height: 10)
+                    }
+                    HStack {
+                        Label("HTTP", systemImage: "network")
+                        Spacer()
+                        Circle()
+                            .fill(viewModel.diag.httpReachable ? .green : .red)
+                            .frame(width: 10, height: 10)
+                    }
+                    HStack {
+                        Text("SSE Clients")
+                        Spacer()
+                        Text("\(viewModel.diag.sseClientCount)")
+                            .font(.body.monospacedDigit())
+                    }
+                    HStack {
+                        Text("Pending Queue")
+                        Spacer()
+                        Text("\(viewModel.diag.pendingQueueCount)")
+                            .font(.body.monospacedDigit())
+                    }
+                    HStack {
+                        Text("Seen IDs")
+                        Spacer()
+                        Text("\(viewModel.diag.seenIDsCount)")
+                            .font(.body.monospacedDigit())
+                    }
+                    HStack {
+                        Text("Reply Handlers")
+                        Spacer()
+                        Text("\(viewModel.diag.replyHandlerCount)")
+                            .font(.body.monospacedDigit())
+                    }
+                }
+
                 Section("IP Discovery") {
                     HStack {
                         Text("NWConnection")
@@ -60,13 +101,13 @@ struct PhoneContentView: View {
                 }
 
                 Section("Log") {
-                    if viewModel.log.isEmpty {
-                        Text("Waiting for messages...")
+                    if viewModel.entries.isEmpty {
+                        Text("Waiting...")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(Array(viewModel.log.enumerated()), id: \.offset) { _, entry in
+                        ForEach(Array(viewModel.entries.enumerated()), id: \.offset) { _, entry in
                             Text(entry)
-                                .font(.caption.monospaced())
+                                .font(.caption2.monospaced())
                                 .foregroundStyle(.secondary)
                         }
                     }

@@ -36,12 +36,14 @@ actor ConnectionManager {
     }
 
     func connect() async {
+        config.logger.info("ConnectionManager: connecting")
         updateState(.connecting)
         stateMachine.reset()
         startLoop()
     }
 
     func disconnect() {
+        config.logger.info("ConnectionManager: disconnecting")
         loopTask?.cancel()
         loopTask = nil
         stateMachine.reset()
@@ -76,12 +78,15 @@ actor ConnectionManager {
             let elapsed = ContinuousClock.now - lastReceived
 
             if elapsed > timeout {
+                config.logger.warning("ConnectionManager: no heartbeat for \(elapsed), checking state machine")
                 switch stateMachine.nextAction(after: .failure) {
                 case .sendPing:
                     break
                 case .reconnect(let attempt):
+                    config.logger.info("ConnectionManager: reconnecting (attempt \(attempt))")
                     updateState(.reconnecting(attempt: attempt))
                 case .giveUp:
+                    config.logger.error("ConnectionManager: gave up after max retries")
                     updateState(.disconnected)
                     return
                 }
@@ -91,6 +96,7 @@ actor ConnectionManager {
 
     private func updateState(_ newState: ConnectionState) {
         guard newState != state else { return }
+        config.logger.info("ConnectionManager: \(self.state) → \(newState)")
         state = newState
         for (_, continuation) in stateSubscribers {
             continuation.yield(newState)

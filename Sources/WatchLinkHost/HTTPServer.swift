@@ -2,14 +2,20 @@ import Foundation
 import Network
 import WatchLinkCore
 
+private struct SSEClient {
+    let connection: NWConnection
+    var lastActivity: ContinuousClock.Instant
+}
+
 package actor HTTPServer: Transport {
     private let port: UInt16
     private let heartbeatInterval: Duration
     private let clock: AnyClock
+    private let logger: WatchLinkLogger
     private var listener: NWListener?
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
-    private var sseClients: [UUID: NWConnection] = [:]
+    private var sseClients: [UUID: SSEClient] = [:]
     private var heartbeatTask: Task<Void, Never>?
     private var _isReachable = false
 
@@ -25,10 +31,13 @@ package actor HTTPServer: Transport {
         await NetworkUtils.localIPAddress()
     }
 
-    package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(ContinuousClock())) {
+    package var diagnosticsSSEClientCount: Int { sseClients.count }
+
+    package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(ContinuousClock()), logger: WatchLinkLogger = .osLog) {
         self.port = port
         self.heartbeatInterval = heartbeatInterval
         self.clock = clock
+        self.logger = logger
     }
 
     package func start() async {
@@ -71,8 +80,8 @@ package actor HTTPServer: Transport {
         listener?.cancel()
         listener = nil
         _isReachable = false
-        for (_, connection) in sseClients {
-            connection.cancel()
+        for (_, client) in sseClients {
+            client.connection.cancel()
         }
         sseClients.removeAll()
     }
@@ -144,25 +153,29 @@ package actor HTTPServer: Transport {
 
         switch request.route {
         case .message:
+            logger.debug("HTTP server: POST /message (\(request.body?.count ?? 0) bytes)")
             if let body = request.body {
                 incomingContinuation?.yield(IncomingMessage(data: body))
             }
             respond(status: .ok, on: connection)
 
         case .events:
+            logger.info("HTTP server: SSE client connecting")
             startSSEStream(on: connection)
 
         case .health:
             respond(status: .ok, on: connection)
 
         case nil:
+            logger.warning("HTTP server: unknown route")
             respond(status: .notFound, on: connection)
         }
     }
 
     private func startSSEStream(on connection: NWConnection) {
         let clientID = UUID()
-        sseClients[clientID] = connection
+        sseClients[clientID] = SSEClient(connection: connection, lastActivity: .now)
+        logger.info("HTTP server: SSE client connected (total: \(self.sseClients.count))")
 
         let header = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\n\r\n"
         connection.send(content: Data(header.utf8), completion: .contentProcessed { _ in })
@@ -177,14 +190,21 @@ package actor HTTPServer: Transport {
     private func pushSSEEvent(_ data: Data) {
         guard let encoded = String(data: data, encoding: .utf8) else { return }
         let event = Data("data: \(encoded)\n\n".utf8)
+        logger.debug("SSE: pushing to \(self.sseClients.count) client(s) (\(data.count) bytes)")
 
-        for (id, connection) in sseClients {
-            connection.send(content: event, completion: .contentProcessed { [weak self] error in
-                if error != nil {
+        for (id, client) in sseClients {
+            client.connection.send(content: event, completion: .contentProcessed { [weak self] error in
+                if let error {
                     Task { await self?.removeSSEClient(id) }
+                } else {
+                    Task { await self?.markClientActive(id) }
                 }
             })
         }
+    }
+
+    private func markClientActive(_ id: UUID) {
+        sseClients[id]?.lastActivity = .now
     }
 
     private func startHeartbeat() {
@@ -200,19 +220,30 @@ package actor HTTPServer: Transport {
     }
 
     private func sendHeartbeat() {
-        let heartbeat = Data(":heartbeat\n\n".utf8)
-        for (id, connection) in sseClients {
-            connection.send(content: heartbeat, completion: .contentProcessed { [weak self] error in
+        let staleThreshold = heartbeatInterval * 3
+        let now = ContinuousClock.now
+
+        for (id, client) in sseClients {
+            if now - client.lastActivity > staleThreshold {
+                logger.info("SSE: removing stale client (no activity for \(now - client.lastActivity))")
+                removeSSEClient(id)
+                continue
+            }
+
+            client.connection.send(content: Data(":heartbeat\n\n".utf8), completion: .contentProcessed { [weak self] error in
                 if error != nil {
                     Task { await self?.removeSSEClient(id) }
+                } else {
+                    Task { await self?.markClientActive(id) }
                 }
             })
         }
     }
 
     private func removeSSEClient(_ id: UUID) {
-        sseClients[id]?.cancel()
+        sseClients[id]?.connection.cancel()
         sseClients[id] = nil
+        logger.info("SSE: client removed (remaining: \(self.sseClients.count))")
     }
 
     private struct ParsedRequest {

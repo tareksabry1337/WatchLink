@@ -32,7 +32,7 @@ public final class WatchLink: Sendable {
         if config.transports.contains(.http),
            let serviceUUID = config.bleServiceUUID,
            let ipCharUUID = config.bleIPCharacteristicUUID {
-            let transport = HTTPTransport(port: config.httpPort, clock: config.clock)
+            let transport = HTTPTransport(port: config.httpPort, clock: config.clock, logger: config.logger)
             http = transport
             transports.append(transport)
 
@@ -87,6 +87,25 @@ public final class WatchLink: Sendable {
 
     public var connectionState: AsyncStream<ConnectionState> {
         get async { await connectionManager.connectionState }
+    }
+
+    public func diagnostics() async -> WatchLinkDiagnostics {
+        var d = WatchLinkDiagnostics()
+        d.pendingQueueCount = await coordinator.diagnosticsPendingCount
+        d.replyHandlerCount = await coordinator.diagnosticsReplyHandlerCount
+        d.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
+
+        for transport in await coordinator.transports {
+            if transport is WCTransport {
+                d.wcReachable = await transport.isReachable
+            }
+            if let http = transport as? HTTPTransport {
+                d.httpReachable = await http.isReachable
+                d.serverIP = await http.diagnosticsServerIP
+            }
+        }
+
+        return d
     }
 
     private func startBLEDiscovery() {

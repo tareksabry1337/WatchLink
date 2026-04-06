@@ -32,19 +32,45 @@ struct WatchContentView: View {
                     }
                 }
 
-                Button("Send Ping") {
-                    Task { await viewModel.sendPing() }
+                HStack(spacing: 8) {
+                    Button("Ping") {
+                        Task { await viewModel.sendPing() }
+                    }
+                    .font(.caption)
+
+                    Button("HR") {
+                        Task { await viewModel.sendHeartRate() }
+                    }
+                    .font(.caption)
                 }
 
-                Button("Send HR") {
-                    Task { await viewModel.sendHeartRate() }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Diagnostics")
+                        .font(.caption2.bold())
+                    HStack {
+                        Text("WC")
+                            .font(.system(size: 9))
+                        Circle()
+                            .fill(viewModel.diag.wcReachable ? .green : .red)
+                            .frame(width: 6, height: 6)
+                        Text("HTTP")
+                            .font(.system(size: 9))
+                        Circle()
+                            .fill(viewModel.diag.httpReachable ? .green : .red)
+                            .frame(width: 6, height: 6)
+                    }
+                    Text("IP: \(viewModel.diag.serverIP ?? "—")")
+                        .font(.system(size: 9).monospaced())
+                    Text("Queue: \(viewModel.diag.pendingQueueCount) | IDs: \(viewModel.diag.seenIDsCount)")
+                        .font(.system(size: 9).monospaced())
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Divider()
 
                 ForEach(Array(viewModel.entries.enumerated()), id: \.offset) { _, entry in
                     Text(entry)
-                        .font(.system(size: 10).monospaced())
+                        .font(.system(size: 9).monospaced())
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }

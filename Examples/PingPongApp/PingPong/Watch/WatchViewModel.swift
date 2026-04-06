@@ -10,6 +10,7 @@ final class WatchViewModel {
     private(set) var lastRoundTripMs = 0
     private(set) var pongCount = 0
     private(set) var entries: [String] = []
+    private(set) var diag = WatchLinkDiagnostics()
 
     @ObservationIgnored
     private lazy var link: WatchLink = WatchLink { [weak self] config in
@@ -30,10 +31,11 @@ final class WatchViewModel {
 
         async let state: Void = observeState()
         async let pongs: Void = listenForPongs()
+        async let diagLoop: Void = refreshDiagnostics()
 
         await link.connect()
 
-        _ = await (state, pongs)
+        _ = await (state, pongs, diagLoop)
     }
 
     func sendPing() async {
@@ -69,6 +71,13 @@ final class WatchViewModel {
             pongCount += 1
             lastRoundTripMs = pong.value.roundTripMs
             addEntry("Pong #\(pong.value.count) (\(pong.value.roundTripMs)ms)")
+        }
+    }
+
+    private func refreshDiagnostics() async {
+        while true {
+            diag = await link.diagnostics()
+            try? await Task.sleep(for: .seconds(2))
         }
     }
 

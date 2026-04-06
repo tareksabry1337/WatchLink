@@ -10,45 +10,54 @@ final class PhoneViewModel {
     private(set) var pingCount = 0
     private(set) var lastPingValue = 0
     private(set) var heartRateBPM = 0
-    private(set) var log: [String] = []
+    private(set) var entries: [String] = []
     private(set) var nwConnectionIP = "—"
     private(set) var getifaddrsIP = "—"
+    private(set) var diag = WatchLinkDiagnostics()
 
-    private let host = WatchLinkHost { config in
+    @ObservationIgnored
+    private lazy var host: WatchLinkHost = WatchLinkHost { [weak self] config in
         config.transports = [.watchConnectivity, .http]
         config.bleServiceUUID = BLEConstants.serviceUUID
         config.bleIPCharacteristicUUID = BLEConstants.ipCharacteristicUUID
         config.httpPort = 8188
+        config.logger = WatchLinkLogger { level, message in
+            Task { @MainActor in
+                self?.addEntry("[\(level)] \(message)")
+            }
+        }
     }
 
     func start() async {
+        addEntry("Starting host...")
         do {
             try await host.start()
             status = "Listening"
-            addLog("Host started")
+            addEntry("Host started")
         } catch {
             status = "Failed: \(error)"
-            addLog("Start failed: \(error)")
+            addEntry("Start failed: \(error)")
             return
         }
 
         async let pings: Void = listenForPings()
         async let heartRates: Void = listenForHeartRates()
-        _ = await (pings, heartRates)
+        async let diagLoop: Void = refreshDiagnostics()
+        _ = await (pings, heartRates, diagLoop)
     }
 
     private func listenForPings() async {
         for await ping in await host.messages(Ping.self) {
             pingCount += 1
             lastPingValue = ping.value.count
-            addLog("Ping #\(ping.value.count)")
+            addEntry("Ping #\(ping.value.count)")
 
             let roundTrip = Int(Date().timeIntervalSince(ping.value.sentAt) * 1000)
             do {
                 try await host.reply(to: ping, with: Pong(count: ping.value.count, roundTripMs: roundTrip))
-                addLog("Pong #\(ping.value.count) (\(roundTrip)ms)")
+                addEntry("Pong #\(ping.value.count) (\(roundTrip)ms)")
             } catch {
-                addLog("Pong failed: \(error)")
+                addEntry("Pong failed: \(error)")
             }
         }
     }
@@ -56,7 +65,7 @@ final class PhoneViewModel {
     private func listenForHeartRates() async {
         for await hr in await host.messages(HeartRate.self) {
             heartRateBPM = hr.value.bpm
-            addLog("HR: \(hr.value.bpm) bpm")
+            addEntry("HR: \(hr.value.bpm) bpm")
         }
     }
 
@@ -64,9 +73,16 @@ final class PhoneViewModel {
         let pong = Pong(count: pingCount + 1, roundTripMs: 0)
         do {
             try await host.send(pong)
-            addLog("Sent pong to watch")
+            addEntry("Sent pong to watch")
         } catch {
-            addLog("Send to watch failed: \(error)")
+            addEntry("Send to watch failed: \(error)")
+        }
+    }
+
+    private func refreshDiagnostics() async {
+        while true {
+            diag = await host.diagnostics()
+            try? await Task.sleep(for: .seconds(2))
         }
     }
 
@@ -130,8 +146,8 @@ final class PhoneViewModel {
         return address ?? "Not found"
     }
 
-    private func addLog(_ message: String) {
-        log.insert(message, at: 0)
-        if log.count > 50 { log.removeLast() }
+    func addEntry(_ message: String) {
+        entries.insert(message, at: 0)
+        if entries.count > 100 { entries.removeLast() }
     }
 }

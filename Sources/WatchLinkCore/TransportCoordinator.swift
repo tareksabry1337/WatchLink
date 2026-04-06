@@ -1,7 +1,7 @@
 import Foundation
 
 package actor TransportCoordinator {
-    private(set) var transports: [any Transport]
+    package private(set) var transports: [any Transport]
     private let clock: AnyClock
     private let sweepInterval: Duration
     private let logger: WatchLinkLogger
@@ -100,8 +100,21 @@ package actor TransportCoordinator {
     package func sendControl(_ frame: ControlFrame) async throws {
         let f = try Frame(control: frame, encoder: encoder)
         let data = try encoder.encode(f)
-        await fanOut(data)
+
+        var reachable: [any Transport] = []
+        for transport in transports {
+            if await transport.isReachable {
+                reachable.append(transport)
+            }
+        }
+
+        guard !reachable.isEmpty else { return }
+        sendToReachable(data, reachable: reachable)
     }
+
+    package var diagnosticsPendingCount: Int { pendingQueue.count }
+    package var diagnosticsReplyHandlerCount: Int { replyHandlers.count }
+    package var diagnosticsSeenIDsCount: Int { seenIDs.count }
 
     package func hasReachableTransport() async -> Bool {
         for transport in transports {

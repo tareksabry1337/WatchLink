@@ -34,7 +34,8 @@ public final class WatchLinkHost: Sendable {
             let server = HTTPServer(
                 port: config.httpPort,
                 heartbeatInterval: config.sseHeartbeatInterval,
-                clock: config.clock
+                clock: config.clock,
+                logger: config.logger
             )
             httpServer = server
             transports.append(server)
@@ -82,6 +83,25 @@ public final class WatchLinkHost: Sendable {
 
     public func messages<M: WatchLinkMessage>(_ type: M.Type) async -> AsyncStream<ReceivedMessage<M>> {
         await coordinator.messages(type)
+    }
+
+    public func diagnostics() async -> WatchLinkDiagnostics {
+        var d = WatchLinkDiagnostics()
+        d.pendingQueueCount = await coordinator.diagnosticsPendingCount
+        d.replyHandlerCount = await coordinator.diagnosticsReplyHandlerCount
+        d.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
+
+        for transport in await coordinator.transports {
+            if transport is WCHostTransport {
+                d.wcReachable = await transport.isReachable
+            }
+            if let server = transport as? HTTPServer {
+                d.sseClientCount = await server.diagnosticsSSEClientCount
+                d.httpReachable = d.sseClientCount > 0
+            }
+        }
+
+        return d
     }
 
     private func observeAppLifecycle() {
