@@ -8,6 +8,8 @@ actor ConnectionManager {
     private var state: ConnectionState = .disconnected
     private var stateSubscribers: [UUID: AsyncStream<ConnectionState>.Continuation] = [:]
     private var pingTask: Task<Void, Never>?
+    private var inactivityTask: Task<Void, Never>?
+    private var lastReceivedAt: ContinuousClock.Instant?
 
     init(coordinator: TransportCoordinator, config: WatchLinkConfiguration) {
         self.coordinator = coordinator
@@ -36,17 +38,26 @@ actor ConnectionManager {
 
     func connect() async {
         updateState(.connecting)
-        try? await coordinator.sendControl(.ping)
         stateMachine.reset()
-        updateState(.connected)
         startPingLoop()
+        startInactivityMonitor()
     }
 
     func disconnect() {
         pingTask?.cancel()
         pingTask = nil
+        inactivityTask?.cancel()
+        inactivityTask = nil
         stateMachine.reset()
+        lastReceivedAt = nil
         updateState(.disconnected)
+    }
+
+    func heartbeatReceived() {
+        lastReceivedAt = .now
+        if state == .connecting || state != .connected {
+            updateState(.connected)
+        }
     }
 
     private func startPingLoop() {
@@ -59,24 +70,42 @@ actor ConnectionManager {
 
     private func runLoop() async {
         while !Task.isCancelled {
+            try? await coordinator.sendControl(.ping)
+            try? await config.clock.sleep(for: config.pingInterval)
+            guard !Task.isCancelled else { return }
+        }
+    }
+
+    private func startInactivityMonitor() {
+        inactivityTask?.cancel()
+        inactivityTask = Task { [weak self] in
+            guard let self else { return }
+            await self.monitorInactivity()
+        }
+    }
+
+    private func monitorInactivity() async {
+        let timeout = config.pingInterval * 3
+
+        while !Task.isCancelled {
             try? await config.clock.sleep(for: config.pingInterval)
             guard !Task.isCancelled else { return }
 
-            let result: PingResult
-            do {
-                try await coordinator.sendControl(.ping)
-                result = .success
-            } catch {
-                result = .failure
-            }
+            if state == .connecting { continue }
 
-            switch stateMachine.nextAction(after: result) {
-            case .sendPing:
-                updateState(.connected)
-            case .reconnect(let attempt):
-                updateState(.reconnecting(attempt: attempt))
-            case .giveUp:
-                updateState(.disconnected)
+            guard let lastReceived = lastReceivedAt else { continue }
+            let elapsed = ContinuousClock.now - lastReceived
+
+            if elapsed > timeout {
+                switch stateMachine.nextAction(after: .failure) {
+                case .sendPing:
+                    break
+                case .reconnect(let attempt):
+                    updateState(.reconnecting(attempt: attempt))
+                case .giveUp:
+                    updateState(.disconnected)
+                    return
+                }
             }
         }
     }

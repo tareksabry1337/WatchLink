@@ -12,6 +12,7 @@ package actor TransportCoordinator {
     private var reachabilityTask: Task<Void, Never>?
     private var subscriptions: [Channel: [UUID: @Sendable (Data, String) -> Void]] = [:]
     private var controlHandler: (@Sendable (ControlFrame) -> Void)?
+    private var heartbeatHandler: (@Sendable () -> Void)?
     private var ingestionTask: Task<Void, Never>?
     private var pendingQueue: [Data] = []
     private var replyHandlers: [String: @Sendable (Data) -> Void] = [:]
@@ -63,6 +64,7 @@ package actor TransportCoordinator {
         ingestionTask = nil
         sweepTask = nil
         controlHandler = nil
+        heartbeatHandler = nil
 
         subscriptions.removeAll()
         seenIDs.removeAll()
@@ -72,6 +74,10 @@ package actor TransportCoordinator {
 
     package func onControl(_ handler: @escaping @Sendable (ControlFrame) -> Void) {
         controlHandler = handler
+    }
+
+    package func onHeartbeat(_ handler: @escaping @Sendable () -> Void) {
+        heartbeatHandler = handler
     }
 
     package func send<M: WatchLinkMessage>(_ message: M) async throws {
@@ -117,36 +123,38 @@ package actor TransportCoordinator {
             return
         }
 
-        await sendToReachable(data, reachable: reachable)
+        sendToReachable(data, reachable: reachable)
     }
 
-    private func sendToReachable(_ data: Data, reachable: [any Transport]) async {
-        if reachable.count == 1 {
-            try? await reachable[0].send(data)
-            return
-        }
+    private func sendToReachable(_ data: Data, reachable: [any Transport]) {
+        Task { [weak self] in
+            var anySucceeded = false
 
-        var anySucceeded = false
-        await withTaskGroup(of: Bool.self) { group in
-            for transport in reachable {
-                group.addTask {
-                    do {
-                        try await transport.send(data)
-                        return true
-                    } catch {
-                        return false
+            await withTaskGroup(of: Bool.self) { group in
+                for transport in reachable {
+                    group.addTask {
+                        do {
+                            try await transport.send(data)
+                            return true
+                        } catch {
+                            return false
+                        }
                     }
+                }
+
+                for await succeeded in group {
+                    if succeeded { anySucceeded = true }
                 }
             }
 
-            for await succeeded in group {
-                if succeeded { anySucceeded = true }
+            if !anySucceeded {
+                await self?.enqueue(data)
             }
         }
+    }
 
-        if !anySucceeded {
-            pendingQueue.append(data)
-        }
+    private func enqueue(_ data: Data) {
+        pendingQueue.append(data)
     }
 
     private func watchReachability() async {
@@ -181,7 +189,7 @@ package actor TransportCoordinator {
         pendingQueue = []
 
         for data in pending {
-            await sendToReachable(data, reachable: reachable)
+            sendToReachable(data, reachable: reachable)
         }
     }
 
@@ -232,6 +240,8 @@ package actor TransportCoordinator {
         if let handler = incoming.replyHandler {
             replyHandlers[frame.id] = handler
         }
+
+        heartbeatHandler?()
 
         switch frame.kind {
         case .control:

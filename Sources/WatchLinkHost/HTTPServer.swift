@@ -21,8 +21,8 @@ package actor HTTPServer: Transport {
         }
     }
 
-    package var localIP: String? {
-        NetworkUtils.localIPAddress()
+    package func localIP() async -> String? {
+        await NetworkUtils.localIPAddress()
     }
 
     package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(ContinuousClock())) {
@@ -65,7 +65,7 @@ package actor HTTPServer: Transport {
         }
     }
 
-    package func stop() async {
+    package func pause() async {
         heartbeatTask?.cancel()
         heartbeatTask = nil
         listener?.cancel()
@@ -75,6 +75,10 @@ package actor HTTPServer: Transport {
             connection.cancel()
         }
         sseClients.removeAll()
+    }
+
+    package func stop() async {
+        await pause()
         incomingContinuation?.finish()
         reachabilityContinuation?.finish()
     }

@@ -1,6 +1,9 @@
 import Foundation
 import WatchConnectivity
 import WatchLinkCore
+#if canImport(WatchKit)
+import WatchKit
+#endif
 
 public final class WatchLink: Sendable {
     private let coordinator: TransportCoordinator
@@ -29,7 +32,7 @@ public final class WatchLink: Sendable {
         if config.transports.contains(.http),
            let serviceUUID = config.bleServiceUUID,
            let ipCharUUID = config.bleIPCharacteristicUUID {
-            let transport = HTTPTransport(port: config.httpPort)
+            let transport = HTTPTransport(port: config.httpPort, clock: config.clock)
             http = transport
             transports.append(transport)
 
@@ -48,22 +51,20 @@ public final class WatchLink: Sendable {
             sweepInterval: config.sweepInterval,
             logger: config.logger
         )
-        
+
         self.connectionManager = ConnectionManager(coordinator: coordinator, config: config)
     }
 
     public func connect() async {
-        await coordinator.startAll()
-
-        if let ble = bleDiscovery, let http = httpTransport {
-            Task {
-                for await ip in await ble.startScanning() {
-                    await http.updateServerIP(ip)
-                }
-            }
+        await coordinator.onHeartbeat { [weak self] in
+            guard let self else { return }
+            Task { await self.connectionManager.heartbeatReceived() }
         }
 
+        await coordinator.startAll()
+        startBLEDiscovery()
         await connectionManager.connect()
+        observeAppLifecycle()
     }
 
     public func disconnect() async {
@@ -86,5 +87,27 @@ public final class WatchLink: Sendable {
 
     public var connectionState: AsyncStream<ConnectionState> {
         get async { await connectionManager.connectionState }
+    }
+
+    private func startBLEDiscovery() {
+        guard let ble = bleDiscovery, let http = httpTransport else { return }
+        Task {
+            for await ip in await ble.startScanning() {
+                await http.updateServerIP(ip)
+            }
+        }
+    }
+
+    private func observeAppLifecycle() {
+        #if canImport(WatchKit)
+        NotificationCenter.default.addObserver(
+            forName: WKApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.httpTransport?.resetSSEConnection() }
+        }
+        #endif
     }
 }

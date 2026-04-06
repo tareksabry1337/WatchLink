@@ -39,6 +39,26 @@ struct PhoneContentView: View {
                     }
                 }
 
+                Section("IP Discovery") {
+                    HStack {
+                        Text("NWConnection")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(viewModel.nwConnectionIP)
+                            .font(.body.monospaced())
+                    }
+                    HStack {
+                        Text("getifaddrs")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(viewModel.getifaddrsIP)
+                            .font(.body.monospaced())
+                    }
+                    Button("Detect IP") {
+                        Task { await viewModel.detectIP() }
+                    }
+                }
+
                 Section("Log") {
                     if viewModel.log.isEmpty {
                         Text("Waiting for messages...")

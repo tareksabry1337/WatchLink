@@ -9,23 +9,30 @@ final class WatchViewModel {
     private(set) var pingCount = 0
     private(set) var lastRoundTripMs = 0
     private(set) var pongCount = 0
-    private(set) var log: [String] = []
+    private(set) var entries: [String] = []
 
-    private let link = WatchLink { config in
-        config.transports = [.http]
+    @ObservationIgnored
+    private lazy var link: WatchLink = WatchLink { [weak self] config in
+        config.transports = [.watchConnectivity, .http]
         config.bleServiceUUID = BLEConstants.serviceUUID
         config.bleIPCharacteristicUUID = BLEConstants.ipCharacteristicUUID
         config.httpPort = 8188
         config.pingInterval = .seconds(10)
+        config.logger = WatchLinkLogger { level, message in
+            Task { @MainActor in
+                self?.addEntry("[\(level)] \(message)")
+            }
+        }
     }
 
     func start() async {
-        addLog("Connecting...")
-        await link.connect()
-        addLog("Connected")
+        addEntry("Starting WatchLink...")
 
         async let state: Void = observeState()
         async let pongs: Void = listenForPongs()
+
+        await link.connect()
+
         _ = await (state, pongs)
     }
 
@@ -34,9 +41,9 @@ final class WatchViewModel {
         let ping = Ping(count: pingCount, sentAt: Date())
         do {
             try await link.send(ping)
-            addLog("Sent ping #\(pingCount)")
+            addEntry("Sent ping #\(pingCount)")
         } catch {
-            addLog("Ping failed: \(error)")
+            addEntry("Ping failed: \(error)")
         }
     }
 
@@ -44,15 +51,16 @@ final class WatchViewModel {
         let bpm = Int.random(in: 60...180)
         do {
             try await link.send(HeartRate(bpm: bpm))
-            addLog("Sent HR: \(bpm)")
+            addEntry("Sent HR: \(bpm)")
         } catch {
-            addLog("HR failed: \(error)")
+            addEntry("HR failed: \(error)")
         }
     }
 
     private func observeState() async {
         for await state in await link.connectionState {
             connectionState = state.description
+            addEntry("State: \(state.description)")
         }
     }
 
@@ -60,12 +68,12 @@ final class WatchViewModel {
         for await pong in await link.messages(Pong.self) {
             pongCount += 1
             lastRoundTripMs = pong.value.roundTripMs
-            addLog("Pong #\(pong.value.count) (\(pong.value.roundTripMs)ms)")
+            addEntry("Pong #\(pong.value.count) (\(pong.value.roundTripMs)ms)")
         }
     }
 
-    private func addLog(_ message: String) {
-        log.insert(message, at: 0)
-        if log.count > 30 { log.removeLast() }
+    func addEntry(_ message: String) {
+        entries.insert(message, at: 0)
+        if entries.count > 50 { entries.removeLast() }
     }
 }

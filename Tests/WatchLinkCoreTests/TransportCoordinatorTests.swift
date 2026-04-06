@@ -13,12 +13,11 @@ struct TransportCoordinatorTests {
         let transport = MockTransport()
         let coordinator = TransportCoordinator(transports: [transport])
 
+        let sentStream = await transport.onSent
         try await coordinator.send(PingMessage(count: 42))
 
-        let sentData = await transport.sentData
-        #expect(sentData.count == 1)
-
-        let frame = try JSONDecoder().decode(Frame.self, from: sentData[0])
+        let data: Data = try await firstValue(from: sentStream)
+        let frame = try JSONDecoder().decode(Frame.self, from: data)
         #expect(frame.kind == .message)
         #expect(frame.channel == PingMessage.channel)
 
@@ -54,10 +53,11 @@ struct TransportCoordinatorTests {
         await bad.setFailOnSend()
         let coordinator = TransportCoordinator(transports: [good, bad])
 
+        let sentStream = await good.onSent
         try await coordinator.send(PingMessage(count: 1))
 
-        let sent = await good.sentData
-        #expect(sent.count == 1)
+        let data: Data = try await firstValue(from: sentStream)
+        #expect(!data.isEmpty)
     }
 
     @Test("sendControl sends control frame")
@@ -65,12 +65,11 @@ struct TransportCoordinatorTests {
         let transport = MockTransport()
         let coordinator = TransportCoordinator(transports: [transport])
 
+        let sentStream = await transport.onSent
         try await coordinator.sendControl(.ping)
 
-        let sentData = await transport.sentData
-        #expect(sentData.count == 1)
-
-        let frame = try JSONDecoder().decode(Frame.self, from: sentData[0])
+        let data: Data = try await firstValue(from: sentStream)
+        let frame = try JSONDecoder().decode(Frame.self, from: data)
         #expect(frame.kind == .control)
     }
 

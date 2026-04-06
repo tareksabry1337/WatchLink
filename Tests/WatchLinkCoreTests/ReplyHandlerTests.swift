@@ -19,12 +19,13 @@ struct ReplyHandlerTests {
         let stream = await coordinator.messages(PingMessage.self)
         let received = try await firstValue(from: stream)
 
+        let sentStream = await transport.onSent
         try await coordinator.reply(toFrameID: received.frameID, with: PongMessage(count: 1))
 
         #expect(mockReply.callCount == 1)
 
-        let transportSent = await transport.sentData
-        #expect(!transportSent.isEmpty)
+        let sentData: Data = try await firstValue(from: sentStream)
+        #expect(!sentData.isEmpty)
 
         await coordinator.stopAll()
     }
@@ -75,10 +76,11 @@ struct ReplyHandlerTests {
         let stream = await coordinator.messages(PingMessage.self)
         let received = try await firstValue(from: stream)
 
+        let sentStream = await transport.onSent
         try await coordinator.reply(toFrameID: received.frameID, with: PongMessage(count: 1))
 
-        let sent = await transport.sentData
-        #expect(!sent.isEmpty)
+        let sentData: Data = try await firstValue(from: sentStream)
+        #expect(!sentData.isEmpty)
 
         await coordinator.stopAll()
     }
@@ -117,12 +119,13 @@ struct ReplyHandlerTests {
         let stream = await coordinator.messages(PingMessage.self)
         _ = try await firstValue(from: stream)
 
+        let sentStream = await transport.onSent
         try await coordinator.send(PongMessage(count: 99))
 
         #expect(mockReply.callCount == 0)
 
-        let sent = await transport.sentData
-        #expect(!sent.isEmpty)
+        let sentData: Data = try await firstValue(from: sentStream)
+        #expect(!sentData.isEmpty)
 
         await coordinator.stopAll()
     }

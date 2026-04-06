@@ -1,6 +1,9 @@
 import Foundation
 import WatchConnectivity
 import WatchLinkCore
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public final class WatchLinkHost: Sendable {
     private let coordinator: TransportCoordinator
@@ -60,8 +63,8 @@ public final class WatchLinkHost: Sendable {
         }
 
         await coordinator.startAll()
-
         await startBLEAdvertising()
+        observeAppLifecycle()
     }
 
     public func stop() async {
@@ -81,19 +84,41 @@ public final class WatchLinkHost: Sendable {
         await coordinator.messages(type)
     }
 
-    public func didEnterBackground() async {
-        await httpServer?.stop()
+    private func observeAppLifecycle() {
+        #if canImport(UIKit)
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.handleBackground() }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.handleForeground() }
+        }
+        #endif
+    }
+
+    private func handleBackground() async {
+        await httpServer?.pause()
         await bleAdvertiser?.stopAdvertising()
     }
 
-    public func willEnterForeground() async {
+    private func handleForeground() async {
         await httpServer?.start()
         await startBLEAdvertising()
     }
 
     private func startBLEAdvertising() async {
         guard let server = httpServer, let ble = bleAdvertiser else { return }
-        guard let ip = await server.localIP else { return }
+        guard let ip = await server.localIP() else { return }
         await ble.startAdvertising(ip: ip)
     }
 

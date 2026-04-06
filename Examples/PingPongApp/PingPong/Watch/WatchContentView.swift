@@ -42,7 +42,7 @@ struct WatchContentView: View {
 
                 Divider()
 
-                ForEach(Array(viewModel.log.enumerated()), id: \.offset) { _, entry in
+                ForEach(Array(viewModel.entries.enumerated()), id: \.offset) { _, entry in
                     Text(entry)
                         .font(.system(size: 10).monospaced())
                         .foregroundStyle(.secondary)

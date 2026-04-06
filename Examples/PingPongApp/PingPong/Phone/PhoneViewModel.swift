@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import WatchLinkHost
 import WatchLinkCore
 
@@ -10,6 +11,8 @@ final class PhoneViewModel {
     private(set) var lastPingValue = 0
     private(set) var heartRateBPM = 0
     private(set) var log: [String] = []
+    private(set) var nwConnectionIP = "—"
+    private(set) var getifaddrsIP = "—"
 
     private let host = WatchLinkHost { config in
         config.transports = [.watchConnectivity, .http]
@@ -65,6 +68,66 @@ final class PhoneViewModel {
         } catch {
             addLog("Send to watch failed: \(error)")
         }
+    }
+
+    func detectIP() async {
+        nwConnectionIP = "Detecting..."
+        getifaddrsIP = "Detecting..."
+
+        nwConnectionIP = await detectViaNWConnection()
+        getifaddrsIP = detectViaGetifaddrs()
+    }
+
+    private func detectViaNWConnection() async -> String {
+        let connection = NWConnection(host: "1.1.1.1", port: 53, using: .udp)
+
+        return await withCheckedContinuation { continuation in
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    if let local = connection.currentPath?.localEndpoint,
+                       case .hostPort(let host, _) = local {
+                        continuation.resume(returning: "\(host)")
+                    } else {
+                        continuation.resume(returning: "No endpoint")
+                    }
+                    connection.cancel()
+                case .failed(let error):
+                    continuation.resume(returning: "Failed: \(error)")
+                    connection.cancel()
+                default:
+                    break
+                }
+            }
+            connection.start(queue: .global())
+        }
+    }
+
+    private nonisolated func detectViaGetifaddrs() -> String {
+        var address: String?
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return "Failed" }
+        defer { freeifaddrs(ifaddr) }
+
+        for ptr in sequence(first: firstAddr, next: { $0.pointee.ifa_next }) {
+            let interface = ptr.pointee
+            let addrFamily = interface.ifa_addr.pointee.sa_family
+
+            if addrFamily == UInt8(AF_INET) {
+                let name = String(cString: interface.ifa_name)
+                if name == "en0" {
+                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    getnameinfo(
+                        interface.ifa_addr, socklen_t(interface.ifa_addr.pointee.sa_len),
+                        &hostname, socklen_t(hostname.count),
+                        nil, 0, NI_NUMERICHOST
+                    )
+                    address = String(cString: hostname)
+                }
+            }
+        }
+
+        return address ?? "Not found"
     }
 
     private func addLog(_ message: String) {

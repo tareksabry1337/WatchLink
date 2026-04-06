@@ -32,7 +32,7 @@ struct ConnectionManagerTests {
         #expect(state == .disconnected)
     }
 
-    @Test("connect transitions through connecting → connected")
+    @Test("connect transitions through connecting → connected on heartbeat")
     func connectTransitions() async throws {
         let (manager, _, coordinator) = makeManager()
         await coordinator.startAll()
@@ -47,7 +47,8 @@ struct ConnectionManagerTests {
             }
         }
 
-        try await manager.connect()
+        await manager.connect()
+        await manager.heartbeatReceived()
         try await withTimeout(.seconds(1)) { await collectTask.value }
 
         let states = await collector.values
@@ -64,7 +65,8 @@ struct ConnectionManagerTests {
         let (manager, _, coordinator) = makeManager()
         await coordinator.startAll()
 
-        try await manager.connect()
+        await manager.connect()
+        await manager.heartbeatReceived()
 
         let collector = AsyncCollector<ConnectionState>()
         let stream = await manager.connectionState
@@ -104,6 +106,7 @@ struct ConnectionManagerTests {
         }
 
         await manager.connect()
+        await manager.heartbeatReceived()
         try await withTimeout(.seconds(1)) { await collectTask.value }
 
         let states = await collector.values
@@ -139,7 +142,8 @@ struct ConnectionManagerTests {
             }
         }
 
-        try await manager.connect()
+        await manager.connect()
+        await manager.heartbeatReceived()
         try await withTimeout(.seconds(1)) {
             await t1.value
             await t2.value
@@ -177,7 +181,8 @@ struct ConnectionManagerTests {
             }
         }
 
-        try await manager.connect()
+        await manager.connect()
+        await manager.heartbeatReceived()
         try await withTimeout(.seconds(1)) { await t2.value }
 
         let states = await collector.values
@@ -204,7 +209,8 @@ struct ConnectionManagerTests {
             }
         }
 
-        try await manager.connect()
+        await manager.connect()
+        await manager.heartbeatReceived()
         try await withTimeout(.seconds(1)) { await collectTask.value }
 
         let states = await collector.values
@@ -222,7 +228,8 @@ struct ConnectionManagerTests {
         let (manager, _, coordinator) = makeManager()
         await coordinator.startAll()
 
-        try await manager.connect()
+        await manager.connect()
+        await manager.heartbeatReceived()
         await manager.disconnect()
 
         let collector = AsyncCollector<ConnectionState>()
@@ -235,7 +242,8 @@ struct ConnectionManagerTests {
             }
         }
 
-        try await manager.connect()
+        await manager.connect()
+        await manager.heartbeatReceived()
         try await withTimeout(.seconds(1)) { await collectTask.value }
 
         let states = await collector.values

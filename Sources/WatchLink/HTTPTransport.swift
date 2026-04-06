@@ -3,6 +3,7 @@ import WatchLinkCore
 
 package actor HTTPTransport: Transport {
     private let port: UInt16
+    private let clock: AnyClock
     private nonisolated(unsafe) let urlSession: any URLSessionProtocol
     private var serverIP: String?
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
@@ -17,8 +18,9 @@ package actor HTTPTransport: Transport {
         reachabilityStream
     }
 
-    package init(port: UInt16, urlSession: any URLSessionProtocol = URLSession.shared) {
+    package init(port: UInt16, clock: AnyClock = AnyClock(ContinuousClock()), urlSession: any URLSessionProtocol = URLSession.shared) {
         self.port = port
+        self.clock = clock
         self.urlSession = urlSession
 
         let (stream, continuation) = AsyncStream<Bool>.makeStream()
@@ -30,6 +32,15 @@ package actor HTTPTransport: Transport {
         serverIP = ip
         _isReachable = true
         reachabilityContinuation.yield(true)
+    }
+
+    package func resetSSEConnection() {
+        guard let continuation = incomingContinuation else { return }
+        sseTask?.cancel()
+        sseTask = Task { [weak self] in
+            guard let self else { return }
+            await self.listenSSE(continuation: continuation)
+        }
     }
 
     package func clearServerIP() {
@@ -78,9 +89,14 @@ package actor HTTPTransport: Transport {
     }
 
     private func listenSSE(continuation: AsyncStream<IncomingMessage>.Continuation) async {
+        var retryDelay: Duration = .seconds(1)
+        let maxRetryDelay: Duration = .seconds(30)
+
         while !Task.isCancelled {
-            guard let url = url(for: .events) else {
-                return
+            guard _isReachable, let url = url(for: .events) else {
+                try? await clock.sleep(for: retryDelay)
+                retryDelay = min(retryDelay * 2, maxRetryDelay)
+                continue
             }
 
             var request = URLRequest(url: url)
@@ -89,6 +105,7 @@ package actor HTTPTransport: Transport {
 
             do {
                 let (bytes, _) = try await urlSession.bytes(for: request, delegate: nil)
+                retryDelay = .seconds(1)
                 for try await line in bytes.lines {
                     guard line.hasPrefix("data: ") else { continue }
                     let payload = Data(line.dropFirst(6).utf8)
@@ -96,6 +113,8 @@ package actor HTTPTransport: Transport {
                 }
             } catch {
                 if Task.isCancelled { return }
+                try? await clock.sleep(for: retryDelay)
+                retryDelay = min(retryDelay * 2, maxRetryDelay)
             }
         }
     }
