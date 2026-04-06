@@ -7,8 +7,7 @@ actor ConnectionManager {
     private var stateMachine: PingStateMachine
     private var state: ConnectionState = .disconnected
     private var stateSubscribers: [UUID: AsyncStream<ConnectionState>.Continuation] = [:]
-    private var pingTask: Task<Void, Never>?
-    private var inactivityTask: Task<Void, Never>?
+    private var loopTask: Task<Void, Never>?
     private var lastReceivedAt: ContinuousClock.Instant?
 
     init(coordinator: TransportCoordinator, config: WatchLinkConfiguration) {
@@ -39,15 +38,12 @@ actor ConnectionManager {
     func connect() async {
         updateState(.connecting)
         stateMachine.reset()
-        startPingLoop()
-        startInactivityMonitor()
+        startLoop()
     }
 
     func disconnect() {
-        pingTask?.cancel()
-        pingTask = nil
-        inactivityTask?.cancel()
-        inactivityTask = nil
+        loopTask?.cancel()
+        loopTask = nil
         stateMachine.reset()
         lastReceivedAt = nil
         updateState(.disconnected)
@@ -55,39 +51,22 @@ actor ConnectionManager {
 
     func heartbeatReceived() {
         lastReceivedAt = .now
-        if state == .connecting || state != .connected {
-            updateState(.connected)
-        }
+        updateState(.connected)
     }
 
-    private func startPingLoop() {
-        pingTask?.cancel()
-        pingTask = Task { [weak self] in
+    private func startLoop() {
+        loopTask?.cancel()
+        loopTask = Task { [weak self] in
             guard let self else { return }
             await self.runLoop()
         }
     }
 
     private func runLoop() async {
-        while !Task.isCancelled {
-            try? await coordinator.sendControl(.ping)
-            try? await config.clock.sleep(for: config.pingInterval)
-            guard !Task.isCancelled else { return }
-        }
-    }
-
-    private func startInactivityMonitor() {
-        inactivityTask?.cancel()
-        inactivityTask = Task { [weak self] in
-            guard let self else { return }
-            await self.monitorInactivity()
-        }
-    }
-
-    private func monitorInactivity() async {
         let timeout = config.pingInterval * 3
 
         while !Task.isCancelled {
+            try? await coordinator.sendControl(.ping)
             try? await config.clock.sleep(for: config.pingInterval)
             guard !Task.isCancelled else { return }
 
