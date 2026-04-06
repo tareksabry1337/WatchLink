@@ -89,6 +89,11 @@ package actor HTTPTransport: Transport {
         logger.debug("HTTP: POST succeeded")
     }
 
+    package func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) {
+        diagnostics.httpReachable = isReachable
+        diagnostics.serverIP = serverIP
+    }
+
     package func respondToQuery(frameID: String, data: Data) async {}
 
     package func query(_ data: Data) async throws -> Data {

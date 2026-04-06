@@ -10,7 +10,7 @@ struct DeallocationTests {
     func coordinatorDeallocated() async {
         let transport = MockTransport()
         var coordinator: TransportCoordinator? = TransportCoordinator(transports: [transport])
-        weak var weakRef = coordinator
+        weak let weakRef = coordinator
 
         await coordinator?.startAll()
         await coordinator?.stopAll()
@@ -23,7 +23,7 @@ struct DeallocationTests {
     func coordinatorWithControlHandler() async {
         let transport = MockTransport()
         var coordinator: TransportCoordinator? = TransportCoordinator(transports: [transport])
-        weak var weakRef = coordinator
+        weak let weakRef = coordinator
 
         await coordinator?.onControl { _ in }
         await coordinator?.startAll()
@@ -37,7 +37,7 @@ struct DeallocationTests {
     func coordinatorWithSubscription() async {
         let transport = MockTransport()
         var coordinator: TransportCoordinator? = TransportCoordinator(transports: [transport])
-        weak var weakRef = coordinator
+        weak let weakRef = coordinator
 
         await coordinator?.startAll()
         let stream = await coordinator?.messages(PingMessage.self)
@@ -57,7 +57,7 @@ struct DeallocationTests {
             clock: AnyClock(clock),
             sweepInterval: .seconds(10)
         )
-        weak var weakRef = coordinator
+        weak let weakRef = coordinator
 
         await coordinator?.startAll()
         await coordinator?.stopAll()
@@ -69,7 +69,7 @@ struct DeallocationTests {
     @Test("transport is not retained by coordinator after stopAll and release")
     func transportNotRetained() async {
         var transport: MockTransport? = MockTransport()
-        weak var weakTransport = transport
+        weak let weakTransport = transport
 
         var coordinator: TransportCoordinator? = TransportCoordinator(transports: [transport!])
         await coordinator?.startAll()
@@ -84,7 +84,7 @@ struct DeallocationTests {
     func multipleStartStop() async {
         let transport = MockTransport()
         var coordinator: TransportCoordinator? = TransportCoordinator(transports: [transport])
-        weak var weakRef = coordinator
+        weak let weakRef = coordinator
 
         for _ in 0..<5 {
             await coordinator?.startAll()
@@ -99,7 +99,7 @@ struct DeallocationTests {
     func coordinatorAfterMessages() async throws {
         let transport = MockTransport()
         var coordinator: TransportCoordinator? = TransportCoordinator(transports: [transport])
-        weak var weakRef = coordinator
+        weak let weakRef = coordinator
 
         await coordinator?.startAll()
         try await coordinator?.send(PingMessage(count: 1))

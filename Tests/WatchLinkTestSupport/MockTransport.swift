@@ -72,6 +72,7 @@ public actor MockTransport: Transport {
         reachabilityContinuation.yield(true)
     }
 
+    public func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) async {}
     public func respondToQuery(frameID: String, data: Data) async {}
 
     public func setFailOnSend() { shouldFailOnSend = true }

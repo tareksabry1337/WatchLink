@@ -56,6 +56,10 @@ package actor WCHostTransport: Transport {
         }
     }
 
+    package func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) {
+        diagnostics.wcReachable = isReachable
+    }
+
     package func respondToQuery(frameID: String, data: Data) {
         if let handler = pendingReplyHandlers.removeValue(forKey: frameID) {
             handler(data)

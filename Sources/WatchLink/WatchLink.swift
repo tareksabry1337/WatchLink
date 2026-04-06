@@ -101,13 +101,7 @@ public final class WatchLink: Sendable {
         d.unackedCount = await coordinator.diagnosticsUnackedCount
 
         for transport in await coordinator.transports {
-            if transport is WCTransport {
-                d.wcReachable = await transport.isReachable
-            }
-            if let http = transport as? HTTPTransport {
-                d.httpReachable = await http.isReachable
-                d.serverIP = await http.diagnosticsServerIP
-            }
+            await transport.populateDiagnostics(&d)
         }
 
         return d

@@ -34,6 +34,11 @@ package actor HTTPServer: Transport {
 
     package var diagnosticsSSEClientCount: Int { sseClients.count }
 
+    package func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) {
+        diagnostics.sseClientCount = sseClients.count
+        diagnostics.httpReachable = sseClients.count > 0
+    }
+
     package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(ContinuousClock()), logger: WatchLinkLogger = .osLog) {
         self.port = port
         self.heartbeatInterval = heartbeatInterval

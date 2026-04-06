@@ -97,13 +97,7 @@ public final class WatchLinkHost: Sendable {
         d.unackedCount = await coordinator.diagnosticsUnackedCount
 
         for transport in await coordinator.transports {
-            if transport is WCHostTransport {
-                d.wcReachable = await transport.isReachable
-            }
-            if let server = transport as? HTTPServer {
-                d.sseClientCount = await server.diagnosticsSSEClientCount
-                d.httpReachable = d.sseClientCount > 0
-            }
+            await transport.populateDiagnostics(&d)
         }
 
         return d
