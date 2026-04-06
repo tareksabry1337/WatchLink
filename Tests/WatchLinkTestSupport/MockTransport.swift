@@ -54,8 +54,8 @@ public actor MockTransport: Transport {
         sentContinuation.finish()
     }
 
-    public func simulateIncoming(_ data: Data, replyHandler: (@Sendable (Data) -> Void)? = nil) {
-        dataContinuation.yield(IncomingMessage(data: data, replyHandler: replyHandler))
+    public func simulateIncoming(_ data: Data) {
+        dataContinuation.yield(IncomingMessage(data: data))
     }
 
     public func finishIncoming() {

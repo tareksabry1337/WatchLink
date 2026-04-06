@@ -39,20 +39,6 @@ struct WCTransportTests {
         #expect(session.sentData.first == payload)
     }
 
-    @Test("send throws when session fails")
-    func sendFailure() async {
-        let session = MockWCSession()
-        session.shouldFail = true
-        let transport = WCTransport(session: session)
-
-        do {
-            try await transport.send(Data("test".utf8))
-            Issue.record("Expected error")
-        } catch {
-            #expect(error is WatchLinkError)
-        }
-    }
-
     @Test("send queues data when unreachable")
     func sendQueuesWhenUnreachable() async {
         let session = MockWCSession()

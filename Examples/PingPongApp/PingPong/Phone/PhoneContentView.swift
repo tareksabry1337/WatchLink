@@ -73,12 +73,6 @@ struct PhoneContentView: View {
                             .font(.body.monospacedDigit())
                     }
                     HStack {
-                        Text("Reply Handlers")
-                        Spacer()
-                        Text("\(viewModel.diag.replyHandlerCount)")
-                            .font(.body.monospacedDigit())
-                    }
-                    HStack {
                         Text("Unacked")
                         Spacer()
                         Text("\(viewModel.diag.unackedCount)")

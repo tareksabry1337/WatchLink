@@ -4,7 +4,6 @@ public struct WatchLinkDiagnostics: Sendable {
     public init() {}
     public var sseClientCount: Int = 0
     public var pendingQueueCount: Int = 0
-    public var replyHandlerCount: Int = 0
     public var seenIDsCount: Int = 0
     public var unackedCount: Int = 0
     public var wcReachable: Bool = false

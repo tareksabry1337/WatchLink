@@ -37,13 +37,7 @@ package actor WCTransport: Transport {
             throw WatchLinkError.sendFailed("WCSession not reachable")
         }
 
-        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-            session.sendMessageData(data, replyHandler: { _ in
-                cont.resume()
-            }, errorHandler: { error in
-                cont.resume(throwing: WatchLinkError.sendFailed(error.localizedDescription))
-            })
-        }
+        session.sendMessageData(data, replyHandler: nil, errorHandler: nil)
     }
 
     package func incoming() -> AsyncStream<IncomingMessage> {
@@ -52,8 +46,8 @@ package actor WCTransport: Transport {
         }
     }
 
-    func handleIncoming(_ data: Data, replyHandler: (@Sendable (Data) -> Void)? = nil) {
-        incomingContinuation?.yield(IncomingMessage(data: data, replyHandler: replyHandler))
+    func handleIncoming(_ data: Data) {
+        incomingContinuation?.yield(IncomingMessage(data: data))
     }
 
     func handleReachabilityChanged(_ reachable: Bool) {
@@ -104,18 +98,6 @@ public final class WCSessionBridge: NSObject, WCSessionDelegate, @unchecked Send
     public func session(_ session: WCSession, didReceiveMessageData messageData: Data) {
         Task { [weak transport] in
             await transport?.handleIncoming(messageData)
-        }
-    }
-
-    public func session(
-        _ session: WCSession,
-        didReceiveMessageData messageData: Data,
-        replyHandler: @escaping (Data) -> Void
-    ) {
-        nonisolated(unsafe) let reply = replyHandler
-        let sendableReply: @Sendable (Data) -> Void = { data in reply(data) }
-        Task { [weak transport] in
-            await transport?.handleIncoming(messageData, replyHandler: sendableReply)
         }
     }
 }

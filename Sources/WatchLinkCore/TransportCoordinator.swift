@@ -16,7 +16,6 @@ package actor TransportCoordinator {
     private var controlHandler: (@Sendable (ControlFrame) -> Void)?
     private var heartbeatHandler: (@Sendable () -> Void)?
     private var ingestionTask: Task<Void, Never>?
-    private var replyHandlers: [String: @Sendable (Data) -> Void] = [:]
     private var unackedMessages: [String: UnackedEntry] = [:]
 
     private struct UnackedEntry {
@@ -84,7 +83,6 @@ package actor TransportCoordinator {
         subscriptions.removeAll()
         seenIDs.removeAll()
         ackedIDs.removeAll()
-        replyHandlers.removeAll()
         unackedMessages.removeAll()
     }
 
@@ -101,19 +99,6 @@ package actor TransportCoordinator {
         let data = try encoder.encode(frame)
         unackedMessages[frame.id] = UnackedEntry(data: data)
         logger.debug("Send \(frame.id) on \(M.channel)")
-        await sendOrWait(data)
-    }
-
-    package func reply<M: WatchLinkMessage>(toFrameID frameID: String, with message: M) async throws {
-        let frame = try Frame(wrapping: message, encoder: encoder)
-        let data = try encoder.encode(frame)
-
-        if let handler = replyHandlers.removeValue(forKey: frameID) {
-            handler(data)
-        }
-
-        unackedMessages[frame.id] = UnackedEntry(data: data)
-        logger.debug("Reply \(frame.id) on \(M.channel)")
         await sendOrWait(data)
     }
 
@@ -136,7 +121,6 @@ package actor TransportCoordinator {
         unackedMessages.count
     }
 
-    package var diagnosticsReplyHandlerCount: Int { replyHandlers.count }
     package var diagnosticsSeenIDsCount: Int { seenIDs.count }
     package var diagnosticsUnackedCount: Int { unackedMessages.count }
 
@@ -258,7 +242,6 @@ package actor TransportCoordinator {
 
         switch frame.kind {
         case .control:
-            incoming.replyHandler?(Data())
             guard dedup(frame.id) else { return }
 
             do {
@@ -276,10 +259,6 @@ package actor TransportCoordinator {
             }
 
         case .message:
-            if let handler = incoming.replyHandler {
-                replyHandlers[frame.id] = handler
-            }
-
             guard let channel = frame.channel else {
                 logger.warning("Message frame missing channel: \(frame.id)")
                 return
@@ -329,12 +308,10 @@ package actor TransportCoordinator {
             try? await clock.sleep(for: sweepInterval)
             guard !Task.isCancelled else { return }
             let idCount = seenIDs.count
-            let handlerCount = replyHandlers.count
             seenIDs.removeAll()
             ackedIDs.removeAll()
-            replyHandlers.removeAll()
-            if idCount > 0 || handlerCount > 0 {
-                logger.debug("Sweep: cleared \(idCount) IDs, \(handlerCount) reply handlers")
+            if idCount > 0 {
+                logger.debug("Sweep: cleared \(idCount) IDs")
             }
         }
     }

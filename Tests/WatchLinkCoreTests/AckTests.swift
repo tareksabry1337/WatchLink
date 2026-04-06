@@ -291,17 +291,6 @@ struct AckTests {
         await coordinator.stopAll()
     }
 
-    // MARK: - Reply also tracked
-
-    @Test("reply is tracked as unacked")
-    func replyTrackedAsUnacked() async throws {
-        let transport = MockTransport()
-        let coordinator = TransportCoordinator(transports: [transport])
-
-        #expect(await coordinator.diagnosticsUnackedCount == 0)
-        try await coordinator.reply(toFrameID: "original-frame-id", with: PongMessage(count: 1))
-        #expect(await coordinator.diagnosticsUnackedCount == 1)
-    }
 }
 
 private actor ControlFrameHolder {

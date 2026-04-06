@@ -22,7 +22,6 @@ public final class MockWCSession: WCSessionProtocol, @unchecked Sendable {
             errorHandler?(WatchLinkError.sendFailed("Mock WC failure"))
         } else {
             sentData.append(data)
-            replyHandler?(Data())
         }
     }
 }

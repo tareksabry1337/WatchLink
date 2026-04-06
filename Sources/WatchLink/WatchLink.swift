@@ -78,10 +78,6 @@ public final class WatchLink: Sendable {
         try await coordinator.send(message)
     }
 
-    public func reply<R: WatchLinkMessage>(to received: ReceivedMessage<some WatchLinkMessage>, with message: R) async throws {
-        try await coordinator.reply(toFrameID: received.frameID, with: message)
-    }
-
     public func messages<M: WatchLinkMessage>(_ type: M.Type) async -> AsyncStream<ReceivedMessage<M>> {
         await coordinator.messages(type)
     }
@@ -93,7 +89,6 @@ public final class WatchLink: Sendable {
     public func diagnostics() async -> WatchLinkDiagnostics {
         var d = WatchLinkDiagnostics()
         d.pendingQueueCount = await coordinator.diagnosticsPendingCount
-        d.replyHandlerCount = await coordinator.diagnosticsReplyHandlerCount
         d.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
         d.unackedCount = await coordinator.diagnosticsUnackedCount
 

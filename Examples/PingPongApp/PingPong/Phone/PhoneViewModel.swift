@@ -54,7 +54,7 @@ final class PhoneViewModel {
 
             let roundTrip = Int(Date().timeIntervalSince(ping.value.sentAt) * 1000)
             do {
-                try await host.reply(to: ping, with: Pong(count: ping.value.count, roundTripMs: roundTrip))
+                try await host.send(Pong(count: ping.value.count, roundTripMs: roundTrip))
                 addEntry("Pong #\(ping.value.count) (\(roundTrip)ms)")
             } catch {
                 addEntry("Pong failed: \(error)")
