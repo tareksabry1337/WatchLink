@@ -55,6 +55,10 @@ package actor WCHostTransport: Transport {
     func handleIncoming(_ data: Data, replyHandler: (@Sendable (Data) -> Void)? = nil) {
         incomingContinuation?.yield(IncomingMessage(data: data, replyHandler: replyHandler))
     }
+
+    func handleReachabilityChanged(_ reachable: Bool) {
+        reachabilityContinuation?.yield(reachable)
+    }
 }
 
 extension WCSession: WCSessionProtocol {
@@ -76,7 +80,19 @@ public final class WCHostSessionBridge: NSObject, WCSessionDelegate, @unchecked 
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
-    ) {}
+    ) {
+        let reachable = session.isReachable
+        Task { [weak transport] in
+            await transport?.handleReachabilityChanged(reachable)
+        }
+    }
+
+    public func sessionReachabilityDidChange(_ session: WCSession) {
+        let reachable = session.isReachable
+        Task { [weak transport] in
+            await transport?.handleReachabilityChanged(reachable)
+        }
+    }
 
     public func sessionDidBecomeInactive(_ session: WCSession) {}
     public func sessionDidDeactivate(_ session: WCSession) {

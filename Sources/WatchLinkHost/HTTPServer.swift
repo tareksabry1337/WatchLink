@@ -177,6 +177,8 @@ package actor HTTPServer: Transport {
         sseClients[clientID] = SSEClient(connection: connection, lastActivity: .now)
         logger.info("HTTP server: SSE client connected (total: \(self.sseClients.count))")
 
+        reachabilityContinuation?.yield(true)
+
         let header = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\n\r\n"
         connection.send(content: Data(header.utf8), completion: .contentProcessed { _ in })
 
@@ -244,6 +246,10 @@ package actor HTTPServer: Transport {
         sseClients[id]?.connection.cancel()
         sseClients[id] = nil
         logger.info("SSE: client removed (remaining: \(self.sseClients.count))")
+
+        if sseClients.isEmpty {
+            reachabilityContinuation?.yield(false)
+        }
     }
 
     private struct ParsedRequest {
