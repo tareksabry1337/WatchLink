@@ -14,8 +14,7 @@ actor ConnectionManager {
         self.coordinator = coordinator
         self.config = config
         self.stateMachine = PingStateMachine(
-            maxPingFailures: config.maxPingFailures,
-            maxRetries: config.maxRetries
+            maxPingFailures: config.maxPingFailures
         )
     }
 
@@ -94,10 +93,6 @@ actor ConnectionManager {
                 case .reconnect(let attempt):
                     config.logger.info("ConnectionManager: reconnecting (attempt \(attempt))")
                     updateState(.reconnecting(attempt: attempt))
-                case .giveUp:
-                    config.logger.error("ConnectionManager: gave up after max retries")
-                    updateState(.disconnected)
-                    return
                 }
             }
         }

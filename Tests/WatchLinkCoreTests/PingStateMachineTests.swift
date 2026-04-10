@@ -8,7 +8,7 @@ struct PingStateMachineTests {
 
     @Test("success keeps sending pings")
     func successContinues() {
-        var machine = PingStateMachine(maxPingFailures: 3, maxRetries: 2)
+        var machine = PingStateMachine(maxPingFailures: 3)
         #expect(machine.nextAction(after: .success) == .sendPing)
         #expect(machine.nextAction(after: .success) == .sendPing)
         #expect(machine.consecutiveFailures == 0)
@@ -16,7 +16,7 @@ struct PingStateMachineTests {
 
     @Test("failures below threshold keep sending pings")
     func failuresBelowThreshold() {
-        var machine = PingStateMachine(maxPingFailures: 3, maxRetries: 2)
+        var machine = PingStateMachine(maxPingFailures: 3)
         #expect(machine.nextAction(after: .failure) == .sendPing)
         #expect(machine.nextAction(after: .failure) == .sendPing)
         #expect(machine.consecutiveFailures == 2)
@@ -24,7 +24,7 @@ struct PingStateMachineTests {
 
     @Test("success resets consecutive failures")
     func successResetsFailures() {
-        var machine = PingStateMachine(maxPingFailures: 3, maxRetries: 2)
+        var machine = PingStateMachine(maxPingFailures: 3)
         _ = machine.nextAction(after: .failure)
         _ = machine.nextAction(after: .failure)
         _ = machine.nextAction(after: .success)
@@ -35,7 +35,7 @@ struct PingStateMachineTests {
 
     @Test("enters reconnect after max ping failures")
     func reconnectAfterMaxFailures() {
-        var machine = PingStateMachine(maxPingFailures: 3, maxRetries: 2)
+        var machine = PingStateMachine(maxPingFailures: 3)
         #expect(machine.nextAction(after: .failure) == .sendPing)
         #expect(machine.nextAction(after: .failure) == .sendPing)
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
@@ -44,33 +44,27 @@ struct PingStateMachineTests {
 
     @Test("enters reconnect after single failure when maxPingFailures is 1")
     func singleFailureThreshold() {
-        var machine = PingStateMachine(maxPingFailures: 1, maxRetries: 3)
+        var machine = PingStateMachine(maxPingFailures: 1)
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
     }
 
     // MARK: - Reconnection Attempts
 
-    @Test("continued failures increment reconnect attempts")
+    @Test("continued failures increment reconnect attempts indefinitely")
     func reconnectAttempts() {
-        var machine = PingStateMachine(maxPingFailures: 1, maxRetries: 3)
+        var machine = PingStateMachine(maxPingFailures: 1)
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 2))
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 3))
-    }
-
-    @Test("gives up after max retries exhausted")
-    func givesUpAfterMaxRetries() {
-        var machine = PingStateMachine(maxPingFailures: 1, maxRetries: 2)
-        #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
-        #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 2))
-        #expect(machine.nextAction(after: .failure) == .giveUp)
+        #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 4))
+        #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 5))
     }
 
     // MARK: - Recovery
 
     @Test("successful reconnect resets everything")
     func reconnectSuccess() {
-        var machine = PingStateMachine(maxPingFailures: 1, maxRetries: 3)
+        var machine = PingStateMachine(maxPingFailures: 1)
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
         #expect(machine.nextAction(after: .success) == .sendPing)
         #expect(machine.isReconnecting == false)
@@ -80,7 +74,7 @@ struct PingStateMachineTests {
 
     @Test("after recovery, failures start fresh")
     func failuresAfterRecovery() {
-        var machine = PingStateMachine(maxPingFailures: 2, maxRetries: 3)
+        var machine = PingStateMachine(maxPingFailures: 2)
 
         _ = machine.nextAction(after: .failure)
         _ = machine.nextAction(after: .failure)
@@ -96,7 +90,7 @@ struct PingStateMachineTests {
 
     @Test("reset clears all state")
     func reset() {
-        var machine = PingStateMachine(maxPingFailures: 1, maxRetries: 2)
+        var machine = PingStateMachine(maxPingFailures: 1)
         _ = machine.nextAction(after: .failure)
         _ = machine.nextAction(after: .failure)
 
@@ -111,20 +105,13 @@ struct PingStateMachineTests {
 
     @Test("maxPingFailures of 0 immediately reconnects on first failure")
     func zeroPingFailures() {
-        var machine = PingStateMachine(maxPingFailures: 0, maxRetries: 1)
+        var machine = PingStateMachine(maxPingFailures: 0)
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
     }
 
-    @Test("maxRetries of 0 gives up on first reconnect failure")
-    func zeroRetries() {
-        var machine = PingStateMachine(maxPingFailures: 1, maxRetries: 0)
-        #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
-        #expect(machine.nextAction(after: .failure) == .giveUp)
-    }
-
-    @Test("full lifecycle: ping → fail → reconnect → recover → fail → give up")
+    @Test("full lifecycle: ping → fail → reconnect → recover → fail → reconnect indefinitely")
     func fullLifecycle() {
-        var machine = PingStateMachine(maxPingFailures: 2, maxRetries: 1)
+        var machine = PingStateMachine(maxPingFailures: 2)
 
         // Normal pinging
         #expect(machine.nextAction(after: .success) == .sendPing)
@@ -140,7 +127,8 @@ struct PingStateMachineTests {
         #expect(machine.nextAction(after: .failure) == .sendPing)
         #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 1))
 
-        // This time reconnect fails too
-        #expect(machine.nextAction(after: .failure) == .giveUp)
+        // Keeps reconnecting indefinitely
+        #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 2))
+        #expect(machine.nextAction(after: .failure) == .reconnect(attempt: 3))
     }
 }

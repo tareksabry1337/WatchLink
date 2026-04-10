@@ -1,13 +1,11 @@
 package struct PingStateMachine: Sendable {
     let maxPingFailures: Int
-    let maxRetries: Int
     private(set) var consecutiveFailures = 0
     private(set) var reconnectAttempt = 0
     private(set) var isReconnecting = false
 
-    package init(maxPingFailures: Int, maxRetries: Int) {
+    package init(maxPingFailures: Int) {
         self.maxPingFailures = maxPingFailures
-        self.maxRetries = maxRetries
     }
 
     package mutating func nextAction(after result: PingResult) -> PingAction {
@@ -23,9 +21,6 @@ package struct PingStateMachine: Sendable {
         case .failure:
             if isReconnecting {
                 reconnectAttempt += 1
-                if reconnectAttempt > maxRetries {
-                    return .giveUp
-                }
                 return .reconnect(attempt: reconnectAttempt)
             }
 
