@@ -201,6 +201,77 @@ struct TransportCoordinatorTests {
         await coordinator.stopAll()
     }
 
+    @Test("request succeeds when one transport fails and another replies")
+    func requestSucceedsWithPartialFailure() async throws {
+        let good = MockTransport()
+        let bad = MockTransport()
+        await bad.setFailOnRequest()
+        let coordinator = TransportCoordinator(transports: [bad, good])
+        await coordinator.startAll()
+
+        let responseData = try JSONEncoder().encode(AnswerMessage(answer: "ok"))
+        let sentStream = await good.onSent
+
+        let response: AnswerMessage = try await withTimeout(.seconds(2)) {
+            async let result = coordinator.send(AskMessage(question: "test"), timeout: .seconds(5))
+
+            let sent = try await firstValue(from: sentStream)
+            let frame = try JSONDecoder().decode(Frame.self, from: sent)
+            await good.simulateRequestReply(to: frame.id, with: responseData)
+
+            return try await result
+        }
+
+        #expect(response.answer == "ok")
+        await coordinator.stopAll()
+    }
+
+    @Test("request times out when all transports fail")
+    func requestTimesOutWhenAllFail() async throws {
+        let bad1 = MockTransport()
+        let bad2 = MockTransport()
+        await bad1.setFailOnRequest()
+        await bad2.setFailOnRequest()
+        let coordinator = TransportCoordinator(transports: [bad1, bad2])
+        await coordinator.startAll()
+
+        do {
+            let _: AnswerMessage = try await coordinator.send(
+                AskMessage(question: "hello"),
+                timeout: .milliseconds(100)
+            )
+            Issue.record("Expected requestTimedOut error")
+        } catch is WatchLinkError {
+            // expected
+        }
+
+        await coordinator.stopAll()
+    }
+
+    @Test("first transport to reply wins in multi-transport request")
+    func firstReplyWins() async throws {
+        let fast = MockTransport()
+        let slow = MockTransport()
+        let coordinator = TransportCoordinator(transports: [fast, slow])
+        await coordinator.startAll()
+
+        let fastSentStream = await fast.onSent
+
+        let response: AnswerMessage = try await withTimeout(.seconds(2)) {
+            async let result = coordinator.send(AskMessage(question: "race"), timeout: .seconds(5))
+
+            let sent = try await firstValue(from: fastSentStream)
+            let frame = try JSONDecoder().decode(Frame.self, from: sent)
+            let fastReply = try JSONEncoder().encode(AnswerMessage(answer: "fast"))
+            await fast.simulateRequestReply(to: frame.id, with: fastReply)
+
+            return try await result
+        }
+
+        #expect(response.answer == "fast")
+        await coordinator.stopAll()
+    }
+
     @Test("send with Response type times out if no reply")
     func sendWithResponseTimesOut() async throws {
         let transport = MockTransport()

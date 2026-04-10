@@ -11,6 +11,7 @@ public actor MockTransport: Transport {
     public private(set) var sentData: [Data] = []
     public private(set) var replies: [RecordedReply] = []
     public var shouldFailOnSend = false
+    public var shouldFailOnRequest = false
 
     private let dataStream: AsyncStream<IncomingMessage>
     private let dataContinuation: AsyncStream<IncomingMessage>.Continuation
@@ -81,6 +82,10 @@ public actor MockTransport: Transport {
 
     public func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) async {}
     public func request(_ data: Data) async throws -> Data {
+        if shouldFailOnRequest {
+            throw WatchLinkError.sendFailed("Mock request failure")
+        }
+
         sentData.append(data)
         sentContinuation.yield(data)
 
@@ -109,4 +114,5 @@ public actor MockTransport: Transport {
     }
 
     public func setFailOnSend() { shouldFailOnSend = true }
+    public func setFailOnRequest() { shouldFailOnRequest = true }
 }

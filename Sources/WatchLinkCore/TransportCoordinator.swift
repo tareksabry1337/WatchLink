@@ -112,10 +112,10 @@ package actor TransportCoordinator {
         unackedMessages[frame.id] = UnackedEntry(data: data)
         logger.debug("Query \(frame.id) on \(M.channel)")
 
-        let responseData = try await withThrowingTaskGroup(of: Data.self) { group in
+        let responseData = try await withThrowingTaskGroup(of: Data?.self) { group in
             for transport in transports {
                 group.addTask {
-                    try await transport.request(data)
+                    try? await transport.request(data)
                 }
             }
 
@@ -124,9 +124,14 @@ package actor TransportCoordinator {
                 throw WatchLinkError.requestTimedOut
             }
 
-            let result = try await group.next()!
-            group.cancelAll()
-            return result
+            for try await result in group {
+                if let result {
+                    group.cancelAll()
+                    return result
+                }
+            }
+            
+            throw WatchLinkError.requestTimedOut
         }
 
         return try decoder.decode(M.Response.self, from: responseData)
