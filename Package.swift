@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "WatchLink",
     platforms: [
-        .iOS(.v16),
-        .watchOS(.v9),
+        .iOS(.v13),
+        .watchOS(.v6),
     ],
     products: [
         .library(name: "WatchLinkCore", targets: ["WatchLinkCore"]),

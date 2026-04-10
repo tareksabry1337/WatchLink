@@ -1,9 +1,15 @@
 import Foundation
 @testable import WatchLinkCore
 
+public struct RecordedReply: Sendable {
+    public let frameID: String
+    public let data: Data
+}
+
 public actor MockTransport: Transport {
     public var isReachable: Bool = true
     public private(set) var sentData: [Data] = []
+    public private(set) var replies: [RecordedReply] = []
     public var shouldFailOnSend = false
 
     private let dataStream: AsyncStream<IncomingMessage>
@@ -12,6 +18,7 @@ public actor MockTransport: Transport {
     private let reachabilityContinuation: AsyncStream<Bool>.Continuation
     private let sentStream: AsyncStream<Data>
     private let sentContinuation: AsyncStream<Data>.Continuation
+    private var requestContinuations: [String: CheckedContinuation<Data, Error>] = [:]
 
     public var reachabilityChanges: AsyncStream<Bool> {
         reachabilityStream
@@ -73,7 +80,33 @@ public actor MockTransport: Transport {
     }
 
     public func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) async {}
-    public func respondToQuery(frameID: String, data: Data) async {}
+    public func request(_ data: Data) async throws -> Data {
+        sentData.append(data)
+        sentContinuation.yield(data)
+
+        let frame = try JSONDecoder().decode(Frame.self, from: data)
+        let frameID = frame.id
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                requestContinuations[frameID] = continuation
+            }
+        } onCancel: { [weak self] in
+            Task { await self?.cancelPendingRequest(frameID) }
+        }
+    }
+
+    public func simulateRequestReply(to frameID: String, with data: Data) {
+        requestContinuations.removeValue(forKey: frameID)?.resume(returning: data)
+    }
+
+    private func cancelPendingRequest(_ frameID: String) {
+        requestContinuations.removeValue(forKey: frameID)?.resume(throwing: CancellationError())
+    }
+
+    public func reply(to frameID: String, with data: Data) async {
+        replies.append(RecordedReply(frameID: frameID, data: data))
+    }
 
     public func setFailOnSend() { shouldFailOnSend = true }
 }

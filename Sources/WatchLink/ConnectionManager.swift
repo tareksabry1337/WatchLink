@@ -8,7 +8,7 @@ actor ConnectionManager {
     private var state: ConnectionState = .disconnected
     private var stateSubscribers: [UUID: AsyncStream<ConnectionState>.Continuation] = [:]
     private var loopTask: Task<Void, Never>?
-    private var lastReceivedAt: ContinuousClock.Instant?
+    private var lastReceivedAt: Instant?
 
     init(coordinator: TransportCoordinator, config: WatchLinkConfiguration) {
         self.coordinator = coordinator
@@ -54,7 +54,7 @@ actor ConnectionManager {
     }
 
     func heartbeatReceived() {
-        lastReceivedAt = .now
+        lastReceivedAt = Instant.now
         updateState(.connected)
     }
 
@@ -77,7 +77,7 @@ actor ConnectionManager {
             if state == .connecting { continue }
 
             guard let lastReceived = lastReceivedAt else { continue }
-            let elapsed = ContinuousClock.now - lastReceived
+            let elapsed = Instant.now - lastReceived
 
             if elapsed > timeout {
                 config.logger.warning("ConnectionManager: no heartbeat for \(elapsed), checking state machine")

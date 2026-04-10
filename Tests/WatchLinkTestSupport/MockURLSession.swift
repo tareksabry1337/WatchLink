@@ -9,10 +9,7 @@ public final class MockURLSession: URLSessionProtocol, @unchecked Sendable {
 
     public init() {}
 
-    public func data(
-        for request: URLRequest,
-        delegate: (any URLSessionTaskDelegate)?
-    ) async throws -> (Data, URLResponse) {
+    public func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
         receivedRequests.append(request)
         if shouldFail {
             throw WatchLinkError.sendFailed("Mock URL failure")
@@ -26,10 +23,7 @@ public final class MockURLSession: URLSessionProtocol, @unchecked Sendable {
         return (responseData, response)
     }
 
-    public func bytes(
-        for request: URLRequest,
-        delegate: (any URLSessionTaskDelegate)?
-    ) async throws -> (URLSession.AsyncBytes, URLResponse) {
-        throw WatchLinkError.sendFailed("MockURLSession does not support bytes")
+    public func streamLines(_ request: URLRequest) -> AsyncStream<String> {
+        AsyncStream { $0.finish() }
     }
 }

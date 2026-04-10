@@ -13,6 +13,19 @@ public struct PongMessage: WatchLinkMessage {
     public init(count: Int) { self.count = count }
 }
 
+public struct AskMessage: WatchLinkMessage {
+    public typealias Response = AnswerMessage
+    public static let channel: Channel = "test.ask"
+    public let question: String
+    public init(question: String) { self.question = question }
+}
+
+public struct AnswerMessage: WatchLinkMessage {
+    public static let channel: Channel = "test.answer"
+    public let answer: String
+    public init(answer: String) { self.answer = answer }
+}
+
 public func encodeFrame<M: WatchLinkMessage>(_ message: M) throws -> Data {
     let encoder = JSONEncoder()
     let frame = try Frame(wrapping: message, encoder: encoder)
@@ -59,7 +72,7 @@ public func withTimeout<T: Sendable>(
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask { try await operation() }
         group.addTask {
-            try await Task.sleep(for: duration)
+            try await Task.sleep(nanoseconds: duration.nanoseconds)
             throw TestTimeoutError()
         }
         let result = try await group.next()!

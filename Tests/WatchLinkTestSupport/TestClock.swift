@@ -1,45 +1,31 @@
 import Foundation
 @testable import WatchLinkCore
 
-public final class TestClock: Clock, @unchecked Sendable {
-    public struct Instant: InstantProtocol, Hashable, Sendable {
-        public var offset: Duration
-
-        public func advanced(by duration: Duration) -> Instant {
-            Instant(offset: offset + duration)
-        }
-
-        public func duration(to other: Instant) -> Duration {
-            other.offset - offset
-        }
-
-        public static func < (lhs: Instant, rhs: Instant) -> Bool {
-            lhs.offset < rhs.offset
-        }
-    }
-
+public final class TestClock: @unchecked Sendable {
     private struct Sleeper {
         let id: UUID
-        let deadline: Instant
+        let deadline: UInt64
         let continuation: CheckedContinuation<Void, any Error>
     }
 
     private let lock = NSLock()
-    private var _now: Instant = Instant(offset: .zero)
+    private var _now: UInt64 = 0
     private var sleepers: [Sleeper] = []
-
-    public var now: Instant {
-        lock.withLock { _now }
-    }
-
-    public var minimumResolution: Duration { .zero }
 
     public init() {}
 
-    public func sleep(until deadline: Instant, tolerance: Duration?) async throws {
+    public var anyClock: AnyClock {
+        AnyClock { [weak self] duration in
+            guard let self else { return }
+            try await self.sleep(for: duration)
+        }
+    }
+
+    public func sleep(for duration: Duration) async throws {
         try Task.checkCancellation()
 
         let id = UUID()
+        let deadline = lock.withLock { _now + duration.nanoseconds }
 
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -51,11 +37,11 @@ public final class TestClock: Clock, @unchecked Sendable {
                     }
                 }
             }
-        } onCancel: {
-            lock.withLock {
-                if let index = sleepers.firstIndex(where: { $0.id == id }) {
-                    let sleeper = sleepers.remove(at: index)
-                    sleeper.continuation.resume(throwing: CancellationError())
+        } onCancel: { [weak self] in
+            self?.lock.withLock {
+                if let index = self?.sleepers.firstIndex(where: { $0.id == id }) {
+                    let sleeper = self?.sleepers.remove(at: index)
+                    sleeper?.continuation.resume(throwing: CancellationError())
                 }
             }
         }
@@ -63,7 +49,7 @@ public final class TestClock: Clock, @unchecked Sendable {
 
     public func advance(by duration: Duration) {
         lock.withLock {
-            _now = _now.advanced(by: duration)
+            _now += duration.nanoseconds
             let ready = sleepers.filter { $0.deadline <= _now }
             sleepers.removeAll { $0.deadline <= _now }
             for sleeper in ready {

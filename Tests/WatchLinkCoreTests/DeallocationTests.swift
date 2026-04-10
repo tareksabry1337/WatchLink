@@ -54,7 +54,7 @@ struct DeallocationTests {
         let transport = MockTransport()
         var coordinator: TransportCoordinator? = TransportCoordinator(
             transports: [transport],
-            clock: AnyClock(clock),
+            clock: clock.anyClock,
             sweepInterval: .seconds(10)
         )
         weak let weakRef = coordinator

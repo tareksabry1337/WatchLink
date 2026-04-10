@@ -67,9 +67,9 @@ final class PhoneViewModel {
         for await request in await host.messages(TimeRequest.self) {
             addEntry("Time query received")
             do {
-                try await host.send(
-                    TimeResponse(timestamp: Date(), label: "Phone clock"),
-                    replyingTo: request
+                try await host.reply(
+                    with: TimeResponse(timestamp: Date(), label: "Phone clock"),
+                    to: request
                 )
                 addEntry("Time response sent")
             } catch {

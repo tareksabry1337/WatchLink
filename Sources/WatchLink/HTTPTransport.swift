@@ -8,8 +8,7 @@ package actor HTTPTransport: Transport {
     private nonisolated(unsafe) let urlSession: any URLSessionProtocol
     private var serverIP: String?
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
-    private let reachabilityStream: AsyncStream<Bool>
-    private let reachabilityContinuation: AsyncStream<Bool>.Continuation
+    private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
     private var sseTask: Task<Void, Never>?
     private var _isReachable = false
 
@@ -17,25 +16,23 @@ package actor HTTPTransport: Transport {
     package var diagnosticsServerIP: String? { serverIP }
 
     package var reachabilityChanges: AsyncStream<Bool> {
-        reachabilityStream
+        AsyncStream { continuation in
+            reachabilityContinuation = continuation
+        }
     }
 
-    package init(port: UInt16, clock: AnyClock = AnyClock(ContinuousClock()), logger: WatchLinkLogger = .osLog, urlSession: any URLSessionProtocol = URLSession.shared) {
+    package init(port: UInt16, clock: AnyClock = AnyClock(), logger: WatchLinkLogger = .osLog, urlSession: any URLSessionProtocol = URLSession.shared) {
         self.port = port
         self.clock = clock
         self.logger = logger
         self.urlSession = urlSession
-
-        let (stream, continuation) = AsyncStream<Bool>.makeStream()
-        self.reachabilityStream = stream
-        self.reachabilityContinuation = continuation
     }
 
     package func updateServerIP(_ ip: String) {
         logger.info("HTTP: server IP set to \(ip)")
         serverIP = ip
         _isReachable = true
-        reachabilityContinuation.yield(true)
+        reachabilityContinuation?.yield(true)
         resetSSEConnection()
     }
 
@@ -53,7 +50,7 @@ package actor HTTPTransport: Transport {
         logger.info("HTTP: server IP cleared")
         serverIP = nil
         _isReachable = false
-        reachabilityContinuation.yield(false)
+        reachabilityContinuation?.yield(false)
         sseTask?.cancel()
     }
 
@@ -64,7 +61,8 @@ package actor HTTPTransport: Transport {
         sseTask = nil
         incomingContinuation?.finish()
         incomingContinuation = nil
-        reachabilityContinuation.finish()
+        reachabilityContinuation?.finish()
+        reachabilityContinuation = nil
         _isReachable = false
     }
 
@@ -79,7 +77,7 @@ package actor HTTPTransport: Transport {
         request.httpBody = data
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
 
-        let (_, response) = try await urlSession.data(for: request, delegate: nil)
+        let (_, response) = try await urlSession.performRequest(request)
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -94,24 +92,41 @@ package actor HTTPTransport: Transport {
         diagnostics.serverIP = serverIP
     }
 
-    package func respondToQuery(frameID: String, data: Data) async {}
+    package func reply(to frameID: String, with data: Data) async {
+        guard let url = url(for: .reply) else { return }
 
-    package func query(_ data: Data) async throws -> Data {
-        guard let url = url(for: .query) else {
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPRoute.reply.method.rawValue
+        request.httpBody = data
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.setValue(frameID, forHTTPHeaderField: "X-Frame-ID")
+
+        do {
+            let (_, response) = try await urlSession.performRequest(request)
+            if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                logger.warning("HTTP: reply failed with \(http.statusCode)")
+            }
+        } catch {
+            logger.warning("HTTP: reply failed: \(error)")
+        }
+    }
+
+    package func request(_ data: Data) async throws -> Data {
+        guard let url = url(for: .request) else {
             throw WatchLinkError.sendFailed("No server IP")
         }
 
-        logger.debug("HTTP: POST /query (\(data.count) bytes)")
+        logger.debug("HTTP: POST /request (\(data.count) bytes)")
         var request = URLRequest(url: url)
-        request.httpMethod = HTTPRoute.query.method.rawValue
+        request.httpMethod = HTTPRoute.request.method.rawValue
         request.httpBody = data
         request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
 
-        let (responseData, response) = try await urlSession.data(for: request, delegate: nil)
+        let (responseData, response) = try await urlSession.performRequest(request)
 
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-            logger.warning("HTTP: query failed with \(code)")
+            logger.warning("HTTP: request failed with \(code)")
             throw WatchLinkError.sendFailed("HTTP \(code)")
         }
         logger.debug("HTTP: query response received (\(responseData.count) bytes)")
@@ -145,23 +160,20 @@ package actor HTTPTransport: Transport {
             request.httpMethod = HTTPRoute.events.method.rawValue
             request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
 
-            do {
-                let (bytes, _) = try await urlSession.bytes(for: request, delegate: nil)
-                logger.info("SSE: connected")
-                retryDelay = .seconds(1)
-                for try await line in bytes.lines {
-                    guard line.hasPrefix("data: ") else { continue }
-                    let payload = Data(line.dropFirst(6).utf8)
-                    logger.debug("SSE: received event (\(payload.count) bytes)")
-                    continuation.yield(IncomingMessage(data: payload))
-                }
-                logger.info("SSE: stream ended")
-            } catch {
-                if Task.isCancelled { return }
-                logger.warning("SSE: error \(error), retrying in \(retryDelay)")
-                try? await clock.sleep(for: retryDelay)
-                retryDelay = min(retryDelay * 2, maxRetryDelay)
+            logger.info("SSE: connected")
+            retryDelay = .seconds(1)
+            for await line in urlSession.streamLines(request) {
+                guard line.hasPrefix("data: ") else { continue }
+                let payload = Data(line.dropFirst(6).utf8)
+                logger.debug("SSE: received event (\(payload.count) bytes)")
+                continuation.yield(IncomingMessage(data: payload))
             }
+            logger.info("SSE: stream ended")
+
+            if Task.isCancelled { return }
+            logger.debug("SSE: reconnecting in \(retryDelay)")
+            try? await clock.sleep(for: retryDelay)
+            retryDelay = min(retryDelay * 2, maxRetryDelay)
         }
     }
 

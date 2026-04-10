@@ -12,7 +12,7 @@ public struct WatchLinkConfiguration: Sendable {
     public var maxRetries: Int = 3
     public var maxPingFailures: Int = 3
     public var logger: WatchLinkLogger = .osLog
-    package var clock: AnyClock = AnyClock(ContinuousClock())
+    package var clock: AnyClock = AnyClock()
 
     public enum TransportKind: Sendable, Hashable {
         case watchConnectivity

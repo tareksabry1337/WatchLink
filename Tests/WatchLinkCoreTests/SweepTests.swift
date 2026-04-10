@@ -11,7 +11,7 @@ struct SweepTests {
         let transport = MockTransport()
         let coordinator = TransportCoordinator(
             transports: [transport],
-            clock: AnyClock(clock),
+            clock: clock.anyClock,
             sweepInterval: .seconds(30)
         )
         await coordinator.startAll()
@@ -48,7 +48,7 @@ struct SweepTests {
         let transport = MockTransport()
         let coordinator = TransportCoordinator(
             transports: [transport],
-            clock: AnyClock(clock),
+            clock: clock.anyClock,
             sweepInterval: .seconds(30)
         )
         await coordinator.startAll()
@@ -83,7 +83,7 @@ struct SweepTests {
         let transport = MockTransport()
         let coordinator = TransportCoordinator(
             transports: [transport],
-            clock: AnyClock(clock),
+            clock: clock.anyClock,
             sweepInterval: .seconds(30)
         )
         await coordinator.startAll()

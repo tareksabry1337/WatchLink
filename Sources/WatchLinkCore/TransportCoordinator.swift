@@ -25,7 +25,7 @@ package actor TransportCoordinator {
 
     package init(
         transports: [any Transport],
-        clock: AnyClock = AnyClock(ContinuousClock()),
+        clock: AnyClock = AnyClock(),
         sweepInterval: Duration = .seconds(30),
         retryInterval: Duration = .seconds(5),
         logger: WatchLinkLogger = .osLog
@@ -95,7 +95,7 @@ package actor TransportCoordinator {
         heartbeatHandler = handler
     }
 
-    package func send<M: WatchLinkMessage>(_ message: M) async throws {
+    package func send<M: WatchLinkMessage>(_ message: M) async throws where M.Response == NoResponse {
         let frame = try Frame(wrapping: message, encoder: encoder)
         let data = try encoder.encode(frame)
         unackedMessages[frame.id] = UnackedEntry(data: data)
@@ -103,32 +103,25 @@ package actor TransportCoordinator {
         await sendOrWait(data)
     }
 
-    package func send<M: WatchLinkMessage>(_ message: M, replyingTo frameID: String) async throws {
-        let data = try encoder.encode(message)
-        for transport in transports {
-            await transport.respondToQuery(frameID: frameID, data: data)
-        }
-    }
-
-    package func query<Q: WatchLinkQuery>(
-        _ query: Q,
+    package func send<M: WatchLinkMessage>(
+        _ message: M,
         timeout: Duration = .seconds(30)
-    ) async throws -> Q.Response {
-        let frame = try Frame(wrapping: query, encoder: encoder)
+    ) async throws -> M.Response {
+        let frame = try Frame(wrapping: message, encoder: encoder)
         let data = try encoder.encode(frame)
         unackedMessages[frame.id] = UnackedEntry(data: data)
-        logger.debug("Query \(frame.id) on \(Q.channel)")
+        logger.debug("Query \(frame.id) on \(M.channel)")
 
         let responseData = try await withThrowingTaskGroup(of: Data.self) { group in
             for transport in transports {
                 group.addTask {
-                    try await transport.query(data)
+                    try await transport.request(data)
                 }
             }
 
             group.addTask { [clock] in
                 try await clock.sleep(for: timeout)
-                throw WatchLinkError.queryTimedOut
+                throw WatchLinkError.requestTimedOut
             }
 
             let result = try await group.next()!
@@ -136,7 +129,18 @@ package actor TransportCoordinator {
             return result
         }
 
-        return try decoder.decode(Q.Response.self, from: responseData)
+        return try decoder.decode(M.Response.self, from: responseData)
+    }
+
+    package func reply<M: WatchLinkMessage>(with message: M, to frameID: String) async throws {
+        let data = try encoder.encode(message)
+        await withTaskGroup(of: Void.self) { group in
+            for transport in transports {
+                group.addTask {
+                    await transport.reply(to: frameID, with: data)
+                }
+            }
+        }
     }
 
     package func sendControl(_ controlFrame: ControlFrame) async throws {

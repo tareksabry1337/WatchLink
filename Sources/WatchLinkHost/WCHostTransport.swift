@@ -42,7 +42,7 @@ package actor WCHostTransport: Transport {
         session.sendMessageData(data, replyHandler: nil, errorHandler: nil)
     }
 
-    package func query(_ data: Data) async throws -> Data {
+    package func request(_ data: Data) async throws -> Data {
         guard isReachable else {
             throw WatchLinkError.sendFailed("WCSession not reachable")
         }
@@ -60,7 +60,7 @@ package actor WCHostTransport: Transport {
         diagnostics.wcReachable = isReachable
     }
 
-    package func respondToQuery(frameID: String, data: Data) {
+    package func reply(to frameID: String, with data: Data) {
         if let handler = pendingReplyHandlers.removeValue(forKey: frameID) {
             handler(data)
         }

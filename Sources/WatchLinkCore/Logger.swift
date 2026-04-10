@@ -32,16 +32,18 @@ public struct WatchLinkLogger: Sendable {
         handler(.error, message())
     }
 
-    private static let _osLogger = os.Logger(subsystem: "WatchLink", category: "Transport")
-
     public static let osLog = WatchLinkLogger { level, message in
-        let logger = _osLogger
-        switch level {
-        case .debug: logger.debug("\(message)")
-        case .info: logger.info("\(message)")
-        case .warning: logger.warning("\(message)")
-        case .error: logger.error("\(message)")
-        case .none: break
+        if #available(iOS 14.0, watchOS 7.0, *) {
+            let logger = os.Logger(subsystem: "WatchLink", category: "Transport")
+            switch level {
+            case .debug: logger.debug("\(message)")
+            case .info: logger.info("\(message)")
+            case .warning: logger.warning("\(message)")
+            case .error: logger.error("\(message)")
+            case .none: break
+            }
+        } else {
+            os_log("%{public}@", message)
         }
     }
 

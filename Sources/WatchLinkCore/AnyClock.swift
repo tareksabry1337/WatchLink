@@ -1,15 +1,19 @@
 import Foundation
 
 package struct AnyClock: Sendable {
-    private let _sleep: @Sendable (Swift.Duration) async throws -> Void
+    private let _sleep: @Sendable (Duration) async throws -> Void
 
-    package init<C: Clock>(_ clock: C) where C.Duration == Swift.Duration {
+    package init() {
         _sleep = { duration in
-            try await clock.sleep(for: duration)
+            try await Task.sleep(nanoseconds: duration.nanoseconds)
         }
     }
 
-    package func sleep(for duration: Swift.Duration) async throws {
+    package init(sleep: @escaping @Sendable (Duration) async throws -> Void) {
+        _sleep = sleep
+    }
+
+    package func sleep(for duration: Duration) async throws {
         try await _sleep(duration)
     }
 }

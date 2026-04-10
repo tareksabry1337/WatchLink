@@ -52,7 +52,7 @@ final class WatchViewModel {
 
     func queryTime() async {
         do {
-            let response = try await link.query(TimeRequest())
+            let response = try await link.send(TimeRequest())
             let formatter = DateFormatter()
             formatter.dateFormat = "HH:mm:ss.SSS"
             phoneTime = formatter.string(from: response.timestamp)

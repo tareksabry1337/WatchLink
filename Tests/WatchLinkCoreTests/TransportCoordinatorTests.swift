@@ -176,6 +176,78 @@ struct TransportCoordinatorTests {
         await coordinator.stopAll()
     }
 
+    // MARK: - Request / Reply
+
+    @Test("send with Response type returns decoded response from transport")
+    func sendWithResponse() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        let responseData = try JSONEncoder().encode(AnswerMessage(answer: "42"))
+        let sentStream = await transport.onSent
+
+        let response: AnswerMessage = try await withTimeout(.seconds(2)) {
+            async let result = coordinator.send(AskMessage(question: "meaning"), timeout: .seconds(5))
+
+            let sent = try await firstValue(from: sentStream)
+            let frame = try JSONDecoder().decode(Frame.self, from: sent)
+            await transport.simulateRequestReply(to: frame.id, with: responseData)
+
+            return try await result
+        }
+
+        #expect(response.answer == "42")
+        await coordinator.stopAll()
+    }
+
+    @Test("send with Response type times out if no reply")
+    func sendWithResponseTimesOut() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        do {
+            let _: AnswerMessage = try await coordinator.send(
+                AskMessage(question: "hello"),
+                timeout: .milliseconds(100)
+            )
+            Issue.record("Expected requestTimedOut error")
+        } catch is WatchLinkError {
+            // expected
+        }
+
+        await coordinator.stopAll()
+    }
+
+    @Test("reply routes to transport with correct frameID and data")
+    func replyRoutesToTransport() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        let wireData = try encodeFrame(AskMessage(question: "time?"))
+        let frame = try JSONDecoder().decode(Frame.self, from: wireData)
+
+        let received: ReceivedMessage<AskMessage> = try await withTimeout(.seconds(2)) {
+            let stream = await coordinator.messages(AskMessage.self)
+            await transport.simulateIncoming(wireData)
+            for await msg in stream { return msg }
+            throw StreamEndedError()
+        }
+
+        try await coordinator.reply(with: AnswerMessage(answer: "now"), to: received.frameID)
+
+        let replies = await transport.replies
+        #expect(replies.count == 1)
+        #expect(replies[0].frameID == frame.id)
+
+        let decoded = try JSONDecoder().decode(AnswerMessage.self, from: replies[0].data)
+        #expect(decoded.answer == "now")
+
+        await coordinator.stopAll()
+    }
+
     // MARK: - Control Frames
 
     @Test("control frames are dispatched to handler")

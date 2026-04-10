@@ -4,7 +4,7 @@ import WatchLinkCore
 
 private struct SSEClient {
     let connection: NWConnection
-    var lastActivity: ContinuousClock.Instant
+    var lastActivity: Instant
 }
 
 package actor HTTPServer: Transport {
@@ -16,7 +16,8 @@ package actor HTTPServer: Transport {
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
     private var sseClients: [UUID: SSEClient] = [:]
-    private var pendingQueryConnections: [String: NWConnection] = [:]
+    private var pendingReplyConnections: [String: NWConnection] = [:]
+    private var pendingRequestContinuations: [String: CheckedContinuation<Data, Error>] = [:]
     private var heartbeatTask: Task<Void, Never>?
     private var _isReachable = false
 
@@ -39,11 +40,12 @@ package actor HTTPServer: Transport {
         diagnostics.httpReachable = sseClients.count > 0
     }
 
-    package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(ContinuousClock()), logger: WatchLinkLogger = .osLog) {
+    package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(), logger: WatchLinkLogger = .osLog) {
         self.port = port
         self.heartbeatInterval = heartbeatInterval
         self.clock = clock
         self.logger = logger
+
     }
 
     package func start() async {
@@ -92,20 +94,40 @@ package actor HTTPServer: Transport {
             client.connection.cancel()
         }
         sseClients.removeAll()
-        for (_, connection) in pendingQueryConnections {
+        for (_, connection) in pendingReplyConnections {
             connection.cancel()
         }
-        pendingQueryConnections.removeAll()
+        pendingReplyConnections.removeAll()
+        for (_, continuation) in pendingRequestContinuations {
+            continuation.resume(throwing: WatchLinkError.sendFailed("Server stopped"))
+        }
+        pendingRequestContinuations.removeAll()
     }
 
     package func stop() async {
         await pause()
         incomingContinuation?.finish()
+        incomingContinuation = nil
         reachabilityContinuation?.finish()
+        reachabilityContinuation = nil
     }
 
     package func send(_ data: Data) async throws {
         pushSSEEvent(data)
+    }
+
+    package func request(_ data: Data) async throws -> Data {
+        guard let frame = try? JSONDecoder().decode(Frame.self, from: data) else {
+            throw WatchLinkError.sendFailed("Failed to decode frame for request")
+        }
+
+        let frameID = frame.id
+        logger.debug("HTTP server: request \(frameID), pushing via SSE and awaiting reply")
+
+        return try await withCheckedThrowingContinuation { continuation in
+            pendingRequestContinuations[frameID] = continuation
+            pushSSEEvent(data)
+        }
     }
 
     package func incoming() -> AsyncStream<IncomingMessage> {
@@ -173,13 +195,22 @@ package actor HTTPServer: Transport {
             }
             respond(status: .ok, on: connection)
 
-        case .query:
-            logger.debug("HTTP server: POST /query (\(request.body?.count ?? 0) bytes)")
+        case .request:
+            logger.debug("HTTP server: POST /request (\(request.body?.count ?? 0) bytes)")
             if let body = request.body {
-                handleQueryRequest(body: body, connection: connection)
+                handleSendWithReply(body: body, connection: connection)
             } else {
                 respond(status: .notFound, on: connection)
             }
+
+        case .reply:
+            if let frameID = request.headers["x-frame-id"], let body = request.body {
+                logger.debug("HTTP server: POST /reply for \(frameID) (\(body.count) bytes)")
+                if let continuation = pendingRequestContinuations.removeValue(forKey: frameID) {
+                    continuation.resume(returning: body)
+                }
+            }
+            respond(status: .ok, on: connection)
 
         case .events:
             logger.info("HTTP server: SSE client connecting")
@@ -194,26 +225,26 @@ package actor HTTPServer: Transport {
         }
     }
 
-    private func handleQueryRequest(body: Data, connection: NWConnection) {
+    private func handleSendWithReply(body: Data, connection: NWConnection) {
         guard let frame = try? JSONDecoder().decode(Frame.self, from: body) else {
-            logger.warning("HTTP server: failed to decode query frame")
+            logger.warning("HTTP server: failed to decode frame")
             respond(status: .notFound, on: connection)
             return
         }
         let frameID = frame.id
 
-        pendingQueryConnections[frameID] = connection
-        logger.debug("HTTP server: holding query connection for \(frameID)")
+        pendingReplyConnections[frameID] = connection
+        logger.debug("HTTP server: holding connection for reply \(frameID)")
         incomingContinuation?.yield(IncomingMessage(data: body))
     }
 
-    package func respondToQuery(frameID: String, data: Data) {
-        guard let connection = pendingQueryConnections.removeValue(forKey: frameID) else {
-            logger.debug("HTTP server: no pending query connection for \(frameID)")
+    package func reply(to frameID: String, with data: Data) {
+        guard let connection = pendingReplyConnections.removeValue(forKey: frameID) else {
+            logger.debug("HTTP server: no pending connection for \(frameID)")
             return
         }
 
-        logger.debug("HTTP server: responding to query \(frameID) (\(data.count) bytes)")
+        logger.debug("HTTP server: replying to \(frameID) (\(data.count) bytes)")
         respond(status: .ok, body: data, on: connection)
     }
 
@@ -274,7 +305,7 @@ package actor HTTPServer: Transport {
 
     private func sendHeartbeat() {
         let staleThreshold = heartbeatInterval * 3
-        let now = ContinuousClock.now
+        let now = Instant.now
 
         for (id, client) in sseClients {
             if now - client.lastActivity > staleThreshold {
@@ -309,6 +340,7 @@ package actor HTTPServer: Transport {
 
     private struct ParsedRequest {
         let route: HTTPRoute?
+        let headers: [String: String]
         let body: Data?
     }
 
@@ -319,6 +351,16 @@ package actor HTTPServer: Transport {
         let path = requestLine.count > 1 ? requestLine[1] : ""
         let route = method.flatMap { HTTPRoute(method: $0, path: path) }
 
+        var headers: [String: String] = [:]
+        for line in lines.dropFirst() {
+            guard !line.isEmpty else { break }
+            if let colonIndex = line.firstIndex(of: ":") {
+                let key = line[..<colonIndex].trimmingCharacters(in: .whitespaces).lowercased()
+                let value = line[line.index(after: colonIndex)...].trimmingCharacters(in: .whitespaces)
+                headers[key] = value
+            }
+        }
+
         var body: Data?
         if let separatorRange = raw.range(of: "\r\n\r\n") {
             let bodyString = String(raw[separatorRange.upperBound...])
@@ -327,7 +369,7 @@ package actor HTTPServer: Transport {
             }
         }
 
-        return ParsedRequest(route: route, body: body)
+        return ParsedRequest(route: route, headers: headers, body: body)
     }
 
     private enum HTTPStatus: Int, Sendable {
