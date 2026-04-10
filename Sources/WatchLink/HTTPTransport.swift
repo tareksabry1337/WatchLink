@@ -144,14 +144,14 @@ package actor HTTPTransport: Transport {
     }
 
     private func listenSSE(continuation: AsyncStream<IncomingMessage>.Continuation) async {
-        var retryDelay: Duration = .seconds(1)
-        let maxRetryDelay: Duration = .seconds(30)
+        var attempt = 0
 
         while !Task.isCancelled {
             guard _isReachable, let url = url(for: .events) else {
-                logger.debug("SSE: not reachable, retrying in \(retryDelay)")
-                try? await clock.sleep(for: retryDelay)
-                retryDelay = min(retryDelay * 2, maxRetryDelay)
+                let delay = JitteredBackoff.delay(attempt: attempt, max: .seconds(30))
+                logger.debug("SSE: not reachable, retrying in \(delay)")
+                try? await clock.sleep(for: delay)
+                attempt += 1
                 continue
             }
 
@@ -161,7 +161,7 @@ package actor HTTPTransport: Transport {
             request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
 
             logger.info("SSE: connected")
-            retryDelay = .seconds(1)
+            attempt = 0
             for await line in urlSession.streamLines(request) {
                 guard line.hasPrefix("data: ") else { continue }
                 let payload = Data(line.dropFirst(6).utf8)
@@ -171,9 +171,10 @@ package actor HTTPTransport: Transport {
             logger.info("SSE: stream ended")
 
             if Task.isCancelled { return }
-            logger.debug("SSE: reconnecting in \(retryDelay)")
-            try? await clock.sleep(for: retryDelay)
-            retryDelay = min(retryDelay * 2, maxRetryDelay)
+            let delay = JitteredBackoff.delay(attempt: attempt, max: .seconds(30))
+            logger.debug("SSE: reconnecting in \(delay)")
+            try? await clock.sleep(for: delay)
+            attempt += 1
         }
     }
 

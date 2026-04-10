@@ -71,7 +71,14 @@ actor ConnectionManager {
 
         while !Task.isCancelled {
             try? await coordinator.sendControl(.ping)
-            try? await config.clock.sleep(for: config.pingInterval)
+
+            if case .reconnecting(let attempt) = state {
+                let backoff = JitteredBackoff.delay(attempt: attempt)
+                config.logger.debug("ConnectionManager: reconnection backoff \(backoff)")
+                try? await config.clock.sleep(for: backoff)
+            } else {
+                try? await config.clock.sleep(for: config.pingInterval)
+            }
             guard !Task.isCancelled else { return }
 
             if state == .connecting { continue }
