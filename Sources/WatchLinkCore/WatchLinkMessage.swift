@@ -7,7 +7,9 @@ public protocol WatchLinkMessage: Codable, Sendable {
 public enum NoResponse: WatchLinkMessage {
     public static var channel: Channel { fatalError("NoResponse is not a real message") }
 
-    public func encode(to encoder: any Encoder) throws {}
+    public func encode(to encoder: any Encoder) throws {
+        fatalError("NoResponse cannot be encoded")
+    }
 
     public init(from decoder: any Decoder) throws {
         fatalError("NoResponse cannot be decoded")
