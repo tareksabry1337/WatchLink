@@ -47,7 +47,8 @@ package actor WCTransport: Transport {
             throw WatchLinkError.sendFailed("WCSession not reachable")
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { raw in
+            let continuation = SafeContinuation(raw)
             session.sendMessageData(data, replyHandler: { responseData in
                 continuation.resume(returning: responseData)
             }, errorHandler: { error in
