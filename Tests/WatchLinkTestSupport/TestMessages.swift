@@ -2,33 +2,35 @@ import Foundation
 @testable import WatchLinkCore
 
 public struct PingMessage: WatchLinkMessage {
-    public static let channel: Channel = "test.ping"
     public let count: Int
     public init(count: Int) { self.count = count }
 }
 
 public struct PongMessage: WatchLinkMessage {
-    public static let channel: Channel = "test.pong"
     public let count: Int
     public init(count: Int) { self.count = count }
 }
 
 public struct AskMessage: WatchLinkMessage {
     public typealias Response = AnswerMessage
-    public static let channel: Channel = "test.ask"
     public let question: String
     public init(question: String) { self.question = question }
 }
 
 public struct AnswerMessage: WatchLinkMessage {
-    public static let channel: Channel = "test.answer"
     public let answer: String
     public init(answer: String) { self.answer = answer }
 }
 
-public func encodeFrame<M: WatchLinkMessage>(_ message: M) throws -> Data {
+public func encodeFrame<M: WatchLinkMessage>(_ message: M, confirmedAcks: [String] = []) throws -> Data {
     let encoder = JSONEncoder()
-    let frame = try Frame(wrapping: message, encoder: encoder)
+    let frame = try Frame(wrapping: message, encoder: encoder, confirmedAcks: confirmedAcks)
+    return try encoder.encode(frame)
+}
+
+public func encodeControlFrame(_ control: ControlFrame, confirmedAcks: [String] = []) throws -> Data {
+    let encoder = JSONEncoder()
+    let frame = try Frame(control: control, encoder: encoder, confirmedAcks: confirmedAcks)
     return try encoder.encode(frame)
 }
 
@@ -59,6 +61,26 @@ public actor AsyncCollector<T: Sendable> {
     public var count: Int { values.count }
     public init() {}
     public func append(_ value: T) { values.append(value) }
+}
+
+public actor AsyncHolder<T: Sendable> {
+    private let stream: AsyncStream<T>
+    private let continuation: AsyncStream<T>.Continuation
+
+    public init() {
+        let (stream, continuation) = AsyncStream<T>.makeStream()
+        self.stream = stream
+        self.continuation = continuation
+    }
+
+    public func send(_ value: T) {
+        continuation.yield(value)
+    }
+
+    public func next() async -> T? {
+        var iterator = stream.makeAsyncIterator()
+        return await iterator.next()
+    }
 }
 
 public struct TestTimeoutError: Error {

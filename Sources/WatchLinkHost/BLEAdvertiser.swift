@@ -1,15 +1,16 @@
 import Foundation
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import WatchLinkCore
 
-package actor BLEAdvertiser {
-    private let serviceUUID: CBUUID
-    private let ipCharacteristicUUID: CBUUID
+@WatchLinkActor
+package final class BLEAdvertiser {
+    private nonisolated(unsafe) let serviceUUID: CBUUID
+    private nonisolated(unsafe) let ipCharacteristicUUID: CBUUID
     private let delegate: PeripheralDelegate
-    private let peripheralManager: CBPeripheralManager
+    private nonisolated(unsafe) let peripheralManager: CBPeripheralManager
     private var ipCharacteristic: CBMutableCharacteristic?
 
-    package init(serviceUUID: UUID, ipCharacteristicUUID: UUID) {
+    package nonisolated init(serviceUUID: UUID, ipCharacteristicUUID: UUID) {
         self.serviceUUID = CBUUID(nsuuid: serviceUUID)
         self.ipCharacteristicUUID = CBUUID(nsuuid: ipCharacteristicUUID)
         self.delegate = PeripheralDelegate()

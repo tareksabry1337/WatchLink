@@ -3,19 +3,17 @@ import Network
 import WatchLinkHost
 import WatchLinkCore
 
-@Observable
 @MainActor
-final class PhoneViewModel {
-    private(set) var status = "Starting..."
-    private(set) var pingCount = 0
-    private(set) var lastPingValue = 0
-    private(set) var heartRateBPM = 0
-    private(set) var entries: [String] = []
-    private(set) var nwConnectionIP = "—"
-    private(set) var getifaddrsIP = "—"
-    private(set) var diag = WatchLinkDiagnostics()
+final class PhoneViewModel: ObservableObject {
+    @Published private(set) var status = "Starting..."
+    @Published private(set) var pingCount = 0
+    @Published private(set) var lastPingValue = 0
+    @Published private(set) var heartRateBPM = 0
+    @Published private(set) var entries: [String] = []
+    @Published private(set) var nwConnectionIP = "—"
+    @Published private(set) var getifaddrsIP = "—"
+    @Published private(set) var diag = WatchLinkDiagnostics()
 
-    @ObservationIgnored
     private lazy var host: WatchLinkHost = WatchLinkHost { [weak self] config in
         config.transports = [.watchConnectivity, .http]
         config.bleServiceUUID = BLEConstants.serviceUUID
@@ -98,7 +96,7 @@ final class PhoneViewModel {
     private func refreshDiagnostics() async {
         while true {
             diag = await host.diagnostics()
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
     }
 

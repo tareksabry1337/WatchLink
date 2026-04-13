@@ -1,4 +1,4 @@
-public struct Channel: Sendable, Hashable, Codable, ExpressibleByStringLiteral, CustomStringConvertible {
+package struct Channel: Sendable, Hashable, Codable, ExpressibleByStringLiteral, CustomStringConvertible {
     public let value: String
 
     public init(stringLiteral value: String) {

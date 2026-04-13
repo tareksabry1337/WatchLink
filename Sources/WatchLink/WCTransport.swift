@@ -2,7 +2,7 @@ import Foundation
 import WatchConnectivity
 import WatchLinkCore
 
-package actor WCTransport: Transport {
+package final class WCTransport: Transport {
     private let session: any WCSessionProtocol
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
@@ -18,15 +18,15 @@ package actor WCTransport: Transport {
         }
     }
 
-    package init(session: any WCSessionProtocol) {
+    package nonisolated init(session: any WCSessionProtocol) {
         self.session = session
     }
 
-    package func start() async {
+    package func start() {
         session.activate()
     }
 
-    package func stop() async {
+    package func stop() {
         incomingContinuation?.finish()
         incomingContinuation = nil
         reachabilityContinuation?.finish()

@@ -47,7 +47,7 @@ enum NetworkUtils {
             let addrFamily = interface.ifa_addr.pointee.sa_family
 
             if addrFamily == UInt8(AF_INET) {
-                let name = String(cString: interface.ifa_name)
+                let name = String(validatingCString: interface.ifa_name) ?? ""
                 if name == "en0" {
                     var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
                     getnameinfo(
@@ -55,7 +55,7 @@ enum NetworkUtils {
                         &hostname, socklen_t(hostname.count),
                         nil, 0, NI_NUMERICHOST
                     )
-                    address = String(cString: hostname)
+                    address = String(validatingCString: &hostname) ?? ""
                 }
             }
         }

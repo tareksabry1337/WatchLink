@@ -6,7 +6,8 @@ public struct RecordedReply: Sendable {
     public let data: Data
 }
 
-public actor MockTransport: Transport {
+@WatchLinkActor
+public final class MockTransport: Transport {
     public var isReachable: Bool = true
     public private(set) var sentData: [Data] = []
     public private(set) var replies: [RecordedReply] = []
@@ -29,7 +30,7 @@ public actor MockTransport: Transport {
         sentStream
     }
 
-    public init() {
+    public nonisolated init() {
         let (dataStream, dataContinuation) = AsyncStream<IncomingMessage>.makeStream()
         self.dataStream = dataStream
         self.dataContinuation = dataContinuation
@@ -55,8 +56,8 @@ public actor MockTransport: Transport {
         dataStream
     }
 
-    public func start() async {}
-    public func stop() async {
+    public func start() {}
+    public func stop() {
         dataContinuation.finish()
         reachabilityContinuation.finish()
         sentContinuation.finish()
@@ -80,7 +81,7 @@ public actor MockTransport: Transport {
         reachabilityContinuation.yield(true)
     }
 
-    public func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) async {}
+    public func populateDiagnostics(_ diagnostics: inout WatchLinkDiagnostics) {}
     public func request(_ data: Data) async throws -> Data {
         if shouldFailOnRequest {
             throw WatchLinkError.sendFailed("Mock request failure")

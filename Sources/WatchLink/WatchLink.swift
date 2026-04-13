@@ -5,6 +5,7 @@ import WatchLinkCore
 import WatchKit
 #endif
 
+@WatchLinkActor
 public final class WatchLink: Sendable {
     private let coordinator: TransportCoordinator
     private let connectionManager: ConnectionManager
@@ -12,8 +13,9 @@ public final class WatchLink: Sendable {
     private let httpTransport: HTTPTransport?
     private let config: WatchLinkConfiguration
     private let sessionBridge: WCSessionBridge?
+    private var bleDiscoveryTask: Task<Void, Never>?
 
-    public init(_ configure: (inout WatchLinkConfiguration) -> Void) {
+    public nonisolated init(_ configure: (inout WatchLinkConfiguration) -> Void) {
         var config = WatchLinkConfiguration()
         configure(&config)
         self.config = config
@@ -48,7 +50,6 @@ public final class WatchLink: Sendable {
         self.coordinator = TransportCoordinator(
             transports: transports,
             clock: config.clock,
-            sweepInterval: config.sweepInterval,
             retryInterval: config.retryInterval,
             logger: config.logger
         )
@@ -57,27 +58,28 @@ public final class WatchLink: Sendable {
     }
 
     public func connect() async {
-        await coordinator.onHeartbeat { [weak self] in
-            guard let self else { return }
+        coordinator.onHeartbeat { [weak connectionManager] in
             Task {
-                await self.connectionManager.heartbeatReceived()
+                await connectionManager?.heartbeatReceived()
             }
         }
 
-        await coordinator.startAll()
+        coordinator.startAll()
         startBLEDiscovery()
-        await connectionManager.connect()
+        connectionManager.connect()
         await observeAppLifecycle()
     }
 
     public func disconnect() async {
-        await connectionManager.disconnect()
-        await bleDiscovery?.stopScanning()
+        connectionManager.disconnect()
+        bleDiscoveryTask?.cancel()
+        bleDiscoveryTask = nil
+        bleDiscovery?.stopScanning()
         await coordinator.stopAll()
     }
 
-    public func send<M: WatchLinkMessage>(_ message: M) async throws where M.Response == NoResponse {
-        try await coordinator.send(message)
+    public func send<M: WatchLinkMessage>(_ message: M) throws where M.Response == NoResponse {
+        try coordinator.send(message)
     }
 
     public func send<M: WatchLinkMessage>(_ message: M, timeout: Duration = .seconds(30)) async throws -> M.Response {
@@ -88,32 +90,33 @@ public final class WatchLink: Sendable {
         try await coordinator.reply(with: message, to: received.frameID)
     }
 
-    public func messages<M: WatchLinkMessage>(_ type: M.Type) async -> AsyncStream<ReceivedMessage<M>> {
-        await coordinator.messages(type)
+    public func messages<M: WatchLinkMessage>(_ type: M.Type) -> AsyncStream<ReceivedMessage<M>> {
+        coordinator.messages(type)
     }
 
     public var connectionState: AsyncStream<ConnectionState> {
-        get async { await connectionManager.connectionState }
+        get { connectionManager.connectionState }
     }
 
-    public func diagnostics() async -> WatchLinkDiagnostics {
+    public func diagnostics() -> WatchLinkDiagnostics {
         var diagnostics = WatchLinkDiagnostics()
-        diagnostics.pendingQueueCount = await coordinator.diagnosticsPendingCount
-        diagnostics.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
-        diagnostics.unackedCount = await coordinator.diagnosticsUnackedCount
+        diagnostics.pendingQueueCount = coordinator.diagnosticsPendingCount
+        diagnostics.seenIDsCount = coordinator.diagnosticsSeenIDsCount
+        diagnostics.unackedCount = coordinator.diagnosticsUnackedCount
+        diagnostics.pendingConfirmationsCount = coordinator.diagnosticsPendingConfirmationsCount
 
-        for transport in await coordinator.transports {
-            await transport.populateDiagnostics(&diagnostics)
+        for transport in coordinator.transports {
+            transport.populateDiagnostics(&diagnostics)
         }
 
         return diagnostics
     }
 
     private func startBLEDiscovery() {
-        guard let ble = bleDiscovery, let http = httpTransport else { return }
-        Task {
-            for await ip in await ble.startScanning() {
-                await http.updateServerIP(ip)
+        guard let bleDiscovery, let httpTransport else { return }
+        bleDiscoveryTask = Task {
+            for await ip in bleDiscovery.startScanning() {
+                httpTransport.updateServerIP(ip)
             }
         }
     }

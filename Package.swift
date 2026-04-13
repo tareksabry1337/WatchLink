@@ -6,7 +6,7 @@ let package = Package(
     name: "WatchLink",
     platforms: [
         .iOS(.v13),
-        .watchOS(.v6),
+        .watchOS(.v7),
     ],
     products: [
         .library(name: "WatchLinkCore", targets: ["WatchLinkCore"]),

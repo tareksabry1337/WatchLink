@@ -1,7 +1,8 @@
 import Foundation
 import WatchLinkCore
 
-actor ConnectionManager {
+@WatchLinkActor
+final class ConnectionManager {
     private let coordinator: TransportCoordinator
     private let config: WatchLinkConfiguration
     private var stateMachine: PingStateMachine
@@ -10,7 +11,7 @@ actor ConnectionManager {
     private var loopTask: Task<Void, Never>?
     private var lastReceivedAt: Instant?
 
-    init(coordinator: TransportCoordinator, config: WatchLinkConfiguration) {
+    nonisolated init(coordinator: TransportCoordinator, config: WatchLinkConfiguration) {
         self.coordinator = coordinator
         self.config = config
         self.stateMachine = PingStateMachine(
@@ -36,7 +37,7 @@ actor ConnectionManager {
         stateSubscribers[id] = nil
     }
 
-    func connect() async {
+    func connect() {
         config.logger.info("ConnectionManager: connecting")
         updateState(.connecting)
         stateMachine.reset()
@@ -69,7 +70,7 @@ actor ConnectionManager {
         let timeout = config.pingInterval * 3
 
         while !Task.isCancelled {
-            try? await coordinator.sendControl(.ping)
+            try? coordinator.sendControl(.ping)
 
             if case .reconnecting(let attempt) = state {
                 let backoff = JitteredBackoff.delay(attempt: attempt)

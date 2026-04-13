@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct WatchContentView: View {
-    let viewModel: WatchViewModel
+    @ObservedObject var viewModel: WatchViewModel
 
     var body: some View {
         ScrollView {

@@ -2,13 +2,14 @@ import Foundation
 @preconcurrency import CoreBluetooth
 import WatchLinkCore
 
-package actor BLEDiscovery {
-    private let serviceUUID: CBUUID
-    private let ipCharacteristicUUID: CBUUID
+@WatchLinkActor
+package final class BLEDiscovery {
+    private nonisolated(unsafe) let serviceUUID: CBUUID
+    private nonisolated(unsafe) let ipCharacteristicUUID: CBUUID
     private let delegate: CentralDelegate
-    private let centralManager: CBCentralManager
+    private nonisolated(unsafe) let centralManager: CBCentralManager
 
-    package init(
+    package nonisolated init(
         serviceUUID: UUID,
         ipCharacteristicUUID: UUID
     ) {

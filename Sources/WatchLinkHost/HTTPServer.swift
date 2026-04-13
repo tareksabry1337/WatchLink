@@ -7,7 +7,8 @@ private struct SSEClient {
     var lastActivity: Instant
 }
 
-package actor HTTPServer: Transport {
+@WatchLinkActor
+package final class HTTPServer: Transport {
     private let port: UInt16
     private let heartbeatInterval: Duration
     private let clock: AnyClock
@@ -40,7 +41,12 @@ package actor HTTPServer: Transport {
         diagnostics.httpReachable = sseClients.count > 0
     }
 
-    package init(port: UInt16, heartbeatInterval: Duration = .seconds(15), clock: AnyClock = AnyClock(), logger: WatchLinkLogger = .osLog) {
+    package nonisolated init(
+        port: UInt16,
+        heartbeatInterval: Duration = .seconds(15),
+        clock: AnyClock = AnyClock(),
+        logger: WatchLinkLogger = .osLog
+    ) {
         self.port = port
         self.heartbeatInterval = heartbeatInterval
         self.clock = clock
@@ -48,7 +54,7 @@ package actor HTTPServer: Transport {
 
     }
 
-    package func start() async {
+    package func start() {
         do {
             guard let nwPort = NWEndpoint.Port(rawValue: port) else {
                 throw WatchLinkError.serverStartFailed("Invalid port: \(port)")
@@ -84,7 +90,7 @@ package actor HTTPServer: Transport {
         }
     }
 
-    package func pause() async {
+    package func pause() {
         heartbeatTask?.cancel()
         heartbeatTask = nil
         listener?.cancel()
@@ -104,8 +110,8 @@ package actor HTTPServer: Transport {
         pendingRequestContinuations.removeAll()
     }
 
-    package func stop() async {
-        await pause()
+    package func stop() {
+        pause()
         incomingContinuation?.finish()
         incomingContinuation = nil
         reachabilityContinuation?.finish()
@@ -296,9 +302,9 @@ package actor HTTPServer: Transport {
         heartbeatTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                try? await self.clock.sleep(for: self.heartbeatInterval)
+                try? await clock.sleep(for: self.heartbeatInterval)
                 guard !Task.isCancelled else { return }
-                await self.sendHeartbeat()
+                sendHeartbeat()
             }
         }
     }

@@ -1,11 +1,11 @@
 import Foundation
 import WatchLinkCore
 
-package actor HTTPTransport: Transport {
+package final class HTTPTransport: Transport {
     private let port: UInt16
     private let clock: AnyClock
     private let logger: WatchLinkLogger
-    private nonisolated(unsafe) let urlSession: any URLSessionProtocol
+    private let urlSession: any URLSessionProtocol
     private var serverIP: String?
     private var incomingContinuation: AsyncStream<IncomingMessage>.Continuation?
     private var reachabilityContinuation: AsyncStream<Bool>.Continuation?
@@ -21,7 +21,12 @@ package actor HTTPTransport: Transport {
         }
     }
 
-    package init(port: UInt16, clock: AnyClock = AnyClock(), logger: WatchLinkLogger = .osLog, urlSession: any URLSessionProtocol = URLSession.shared) {
+    package nonisolated init(
+        port: UInt16,
+        clock: AnyClock = AnyClock(),
+        logger: WatchLinkLogger = .osLog,
+        urlSession: any URLSessionProtocol = URLSession.shared
+    ) {
         self.port = port
         self.clock = clock
         self.logger = logger
@@ -54,9 +59,9 @@ package actor HTTPTransport: Transport {
         sseTask?.cancel()
     }
 
-    package func start() async {}
+    package func start() {}
 
-    package func stop() async {
+    package func stop() {
         sseTask?.cancel()
         sseTask = nil
         incomingContinuation?.finish()

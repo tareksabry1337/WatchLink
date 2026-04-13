@@ -5,6 +5,7 @@ import WatchLinkCore
 import UIKit
 #endif
 
+@WatchLinkActor
 public final class WatchLinkHost: Sendable {
     private let coordinator: TransportCoordinator
     private let httpServer: HTTPServer?
@@ -12,7 +13,7 @@ public final class WatchLinkHost: Sendable {
     private let config: WatchLinkConfiguration
     private let sessionBridge: WCHostSessionBridge?
 
-    public init(_ configure: (inout WatchLinkConfiguration) -> Void) {
+    public nonisolated init(_ configure: (inout WatchLinkConfiguration) -> Void) {
         var config = WatchLinkConfiguration()
         configure(&config)
         self.config = config
@@ -52,32 +53,31 @@ public final class WatchLinkHost: Sendable {
         self.coordinator = TransportCoordinator(
             transports: transports,
             clock: config.clock,
-            sweepInterval: config.sweepInterval,
             retryInterval: config.retryInterval,
             logger: config.logger
         )
     }
 
     public func start() async throws {
-        await coordinator.onControl { [weak self] frame in
+        coordinator.onControl { [weak self] frame in
             guard let self else { return }
             Task {
                 await self.handleControl(frame)
             }
         }
 
-        await coordinator.startAll()
+        coordinator.startAll()
         await startBLEAdvertising()
         await observeAppLifecycle()
     }
 
     public func stop() async {
         await coordinator.stopAll()
-        await bleAdvertiser?.stopAdvertising()
+        bleAdvertiser?.stopAdvertising()
     }
 
-    public func send<M: WatchLinkMessage>(_ message: M) async throws where M.Response == NoResponse {
-        try await coordinator.send(message)
+    public func send<M: WatchLinkMessage>(_ message: M) throws where M.Response == NoResponse {
+        try coordinator.send(message)
     }
 
     public func send<M: WatchLinkMessage>(_ message: M, timeout: Duration = .seconds(30)) async throws -> M.Response {
@@ -88,18 +88,19 @@ public final class WatchLinkHost: Sendable {
         try await coordinator.reply(with: message, to: received.frameID)
     }
 
-    public func messages<M: WatchLinkMessage>(_ type: M.Type) async -> AsyncStream<ReceivedMessage<M>> {
-        await coordinator.messages(type)
+    public func messages<M: WatchLinkMessage>(_ type: M.Type) -> AsyncStream<ReceivedMessage<M>> {
+        coordinator.messages(type)
     }
 
-    public func diagnostics() async -> WatchLinkDiagnostics {
+    public func diagnostics() -> WatchLinkDiagnostics {
         var diagnostics = WatchLinkDiagnostics()
-        diagnostics.pendingQueueCount = await coordinator.diagnosticsPendingCount
-        diagnostics.seenIDsCount = await coordinator.diagnosticsSeenIDsCount
-        diagnostics.unackedCount = await coordinator.diagnosticsUnackedCount
+        diagnostics.pendingQueueCount = coordinator.diagnosticsPendingCount
+        diagnostics.seenIDsCount = coordinator.diagnosticsSeenIDsCount
+        diagnostics.unackedCount = coordinator.diagnosticsUnackedCount
+        diagnostics.pendingConfirmationsCount = coordinator.diagnosticsPendingConfirmationsCount
 
-        for transport in await coordinator.transports {
-            await transport.populateDiagnostics(&diagnostics)
+        for transport in coordinator.transports {
+            transport.populateDiagnostics(&diagnostics)
         }
 
         return diagnostics
@@ -131,27 +132,27 @@ public final class WatchLinkHost: Sendable {
         #endif
     }
 
-    private func handleBackground() async {
-        await httpServer?.pause()
-        await bleAdvertiser?.stopAdvertising()
+    private func handleBackground() {
+        httpServer?.pause()
+        bleAdvertiser?.stopAdvertising()
     }
 
     private func handleForeground() async {
-        await httpServer?.start()
+        httpServer?.start()
         await startBLEAdvertising()
     }
 
     private func startBLEAdvertising() async {
         guard let server = httpServer, let ble = bleAdvertiser else { return }
         guard let ip = await server.localIP() else { return }
-        await ble.startAdvertising(ip: ip)
+        ble.startAdvertising(ip: ip)
     }
 
-    private func handleControl(_ frame: ControlFrame) async {
+    private func handleControl(_ frame: ControlFrame) {
         switch frame {
         case .ping:
             do {
-                try await coordinator.sendControl(.pong)
+                try coordinator.sendControl(.pong)
             } catch {
                 config.logger.error("Failed to send pong: \(error)")
             }

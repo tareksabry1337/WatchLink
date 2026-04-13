@@ -48,14 +48,13 @@ struct DeallocationTests {
         #expect(weakRef == nil)
     }
 
-    @Test("coordinator with sweep task is deallocated after stopAll")
-    func coordinatorWithSweep() async {
+    @Test("coordinator with tasks is deallocated after stopAll")
+    func coordinatorWithTasks() async {
         let clock = TestClock()
         let transport = MockTransport()
         var coordinator: TransportCoordinator? = TransportCoordinator(
             transports: [transport],
-            clock: clock.anyClock,
-            sweepInterval: .seconds(10)
+            clock: clock.anyClock
         )
         weak let weakRef = coordinator
 

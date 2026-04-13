@@ -124,7 +124,7 @@ struct TransportCoordinatorTests {
         await coordinator.startAll()
 
         let encoder = JSONEncoder()
-        let duplicateFrame = try Frame(wrapping: PingMessage(count: 1), encoder: encoder)
+        let duplicateFrame = try Frame(wrapping: PingMessage(count: 1), encoder: encoder, confirmedAcks: [])
         let duplicateData = try encoder.encode(duplicateFrame)
         let uniqueData = try encodeFrame(PingMessage(count: 2))
 
@@ -325,15 +325,15 @@ struct TransportCoordinatorTests {
     func controlFrameDispatch() async throws {
         let transport = MockTransport()
         let coordinator = TransportCoordinator(transports: [transport])
-        let holder = FrameHolder()
+        let holder = AsyncHolder<ControlFrame>()
 
         await coordinator.onControl { frame in
-            Task { await holder.set(frame) }
+            Task { await holder.send(frame) }
         }
         await coordinator.startAll()
 
         let encoder = JSONEncoder()
-        let frame = try Frame(control: .ping, encoder: encoder)
+        let frame = try Frame(control: .ping, encoder: encoder, confirmedAcks: [])
         let data = try encoder.encode(frame)
         await transport.simulateIncoming(data)
 
@@ -354,7 +354,7 @@ struct TransportCoordinatorTests {
         await coordinator.startAll()
 
         let encoder = JSONEncoder()
-        let controlFrame = try Frame(control: .ping, encoder: encoder)
+        let controlFrame = try Frame(control: .ping, encoder: encoder, confirmedAcks: [])
         let controlData = try encoder.encode(controlFrame)
         let messageData = try encodeFrame(PingMessage(count: 1))
 
@@ -370,24 +370,266 @@ struct TransportCoordinatorTests {
         await coordinator.stopAll()
     }
 
-}
+    // MARK: - Ack-of-Ack
 
-private actor FrameHolder {
-    private let stream: AsyncStream<ControlFrame>
-    private let continuation: AsyncStream<ControlFrame>.Continuation
+    @Test("receiving ack queues confirmation, next outgoing frame carries it")
+    func ackConfirmationPiggybacked() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
 
-    init() {
-        let (stream, continuation) = AsyncStream<ControlFrame>.makeStream()
-        self.stream = stream
-        self.continuation = continuation
+        // Send message X, capture its frame ID
+        let sentStream = await transport.onSent
+        try await coordinator.send(PingMessage(count: 1))
+        let sentData: Data = try await firstValue(from: sentStream)
+        let sentFrame = try JSONDecoder().decode(Frame.self, from: sentData)
+        let messageID = sentFrame.id
+
+        // Simulate ack, then a marker message to prove ack was processed
+        let ackData = try encodeControlFrame(.ack(messageID))
+        let markerData = try encodeFrame(PongMessage(count: 999))
+        let markerStream = await coordinator.messages(PongMessage.self)
+        await transport.simulateIncoming(ackData)
+        await transport.simulateIncoming(markerData)
+        _ = try await firstMessage(from: markerStream)
+
+        // Send another message — should carry confirmation for messageID
+        let sentStream2 = await transport.onSent
+        try await coordinator.send(PingMessage(count: 2))
+        let nextData: Data = try await firstValue(from: sentStream2)
+        let nextFrame = try JSONDecoder().decode(Frame.self, from: nextData)
+
+        #expect(nextFrame.confirmedAcks.contains(messageID))
+
+        await coordinator.stopAll()
     }
 
-    func set(_ frame: ControlFrame) {
-        continuation.yield(frame)
+    @Test("confirmations piggybacked on control frames")
+    func confirmationOnControlFrame() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        // Send message, capture ID
+        let sentStream = await transport.onSent
+        try await coordinator.send(PingMessage(count: 1))
+        let sentData: Data = try await firstValue(from: sentStream)
+        let sentFrame = try JSONDecoder().decode(Frame.self, from: sentData)
+
+        // Simulate ack + marker to sync
+        let ackData = try encodeControlFrame(.ack(sentFrame.id))
+        let markerData = try encodeFrame(PongMessage(count: 999))
+        let markerStream = await coordinator.messages(PongMessage.self)
+        await transport.simulateIncoming(ackData)
+        await transport.simulateIncoming(markerData)
+        _ = try await firstMessage(from: markerStream)
+
+        // Send a control frame — should carry the confirmation
+        let sentStream2 = await transport.onSent
+        try await coordinator.sendControl(.ping)
+        let pingData: Data = try await firstValue(from: sentStream2)
+        let pingFrame = try JSONDecoder().decode(Frame.self, from: pingData)
+
+        #expect(pingFrame.confirmedAcks.contains(sentFrame.id))
+
+        await coordinator.stopAll()
     }
 
-    func next() async -> ControlFrame? {
-        var iterator = stream.makeAsyncIterator()
-        return await iterator.next()
+    @Test("receiving confirmedAcks removes IDs from seenIDs")
+    func confirmedAcksRemovesFromSeenIDs() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        // Simulate incoming message — adds to seenIDs
+        let messageData = try encodeFrame(PingMessage(count: 1))
+        let frame = try JSONDecoder().decode(Frame.self, from: messageData)
+        let pingStream = await coordinator.messages(PingMessage.self)
+        await transport.simulateIncoming(messageData)
+        _ = try await firstMessage(from: pingStream)
+
+        #expect(await coordinator.diagnosticsSeenIDsCount == 1)
+
+        // Simulate incoming frame with confirmedAcks for that message ID
+        // Use a marker on PongMessage channel to sync
+        let confirmData = try encodeFrame(PongMessage(count: 1), confirmedAcks: [frame.id])
+        let pongStream = await coordinator.messages(PongMessage.self)
+        await transport.simulateIncoming(confirmData)
+        _ = try await firstMessage(from: pongStream)
+
+        // seenIDs has 1 entry (PongMessage's own ID), not 2 — confirmation removed the original
+        #expect(await coordinator.diagnosticsSeenIDsCount == 1)
+
+        await coordinator.stopAll()
+    }
+
+    @Test("pending confirmations flushed after being sent")
+    func confirmationsFlushedAfterSend() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        // Send message, get ack
+        let sentStream = await transport.onSent
+        try await coordinator.send(PingMessage(count: 1))
+        let sentData: Data = try await firstValue(from: sentStream)
+        let sentFrame = try JSONDecoder().decode(Frame.self, from: sentData)
+
+        // Simulate ack + marker to sync
+        let ackData = try encodeControlFrame(.ack(sentFrame.id))
+        let markerData = try encodeFrame(PongMessage(count: 999))
+        let markerStream = await coordinator.messages(PongMessage.self)
+        await transport.simulateIncoming(ackData)
+        await transport.simulateIncoming(markerData)
+        _ = try await firstMessage(from: markerStream)
+
+        // First send carries confirmations
+        let sentStream2 = await transport.onSent
+        try await coordinator.send(PingMessage(count: 2))
+        let firstData: Data = try await firstValue(from: sentStream2)
+        let firstFrame = try JSONDecoder().decode(Frame.self, from: firstData)
+        #expect(!firstFrame.confirmedAcks.isEmpty)
+
+        // Second send should have empty confirmations — already flushed
+        let sentStream3 = await transport.onSent
+        try await coordinator.send(PingMessage(count: 3))
+        let secondData: Data = try await firstValue(from: sentStream3)
+        let secondFrame = try JSONDecoder().decode(Frame.self, from: secondData)
+        #expect(secondFrame.confirmedAcks.isEmpty)
+
+        await coordinator.stopAll()
+    }
+
+    @Test("multiple ack confirmations batched in single frame")
+    func multipleConfirmationsBatched() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        let sentStream = await transport.onSent
+
+        // Send two messages
+        try await coordinator.send(PingMessage(count: 1))
+        let data1: Data = try await firstValue(from: sentStream)
+        let frame1 = try JSONDecoder().decode(Frame.self, from: data1)
+
+        let sentStream2 = await transport.onSent
+        try await coordinator.send(PingMessage(count: 2))
+        let data2: Data = try await firstValue(from: sentStream2)
+        let frame2 = try JSONDecoder().decode(Frame.self, from: data2)
+
+        // Simulate acks for both + marker to sync
+        let ack1 = try encodeControlFrame(.ack(frame1.id))
+        let ack2 = try encodeControlFrame(.ack(frame2.id))
+        let markerData = try encodeFrame(PongMessage(count: 999))
+        let markerStream = await coordinator.messages(PongMessage.self)
+        await transport.simulateIncoming(ack1)
+        await transport.simulateIncoming(ack2)
+        await transport.simulateIncoming(markerData)
+        _ = try await firstMessage(from: markerStream)
+
+        // Next outgoing frame should carry both confirmations
+        let sentStream3 = await transport.onSent
+        try await coordinator.send(PingMessage(count: 3))
+        let batchData: Data = try await firstValue(from: sentStream3)
+        let batchFrame = try JSONDecoder().decode(Frame.self, from: batchData)
+
+        #expect(batchFrame.confirmedAcks.contains(frame1.id))
+        #expect(batchFrame.confirmedAcks.contains(frame2.id))
+
+        await coordinator.stopAll()
+    }
+
+    @Test("retried message always gets re-acked")
+    func retriedMessageReAcked() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        await coordinator.startAll()
+
+        let encoder = JSONEncoder()
+        let messageFrame = try Frame(wrapping: PingMessage(count: 1), encoder: encoder, confirmedAcks: [])
+        let messageData = try encoder.encode(messageFrame)
+
+        let stream = await coordinator.messages(PingMessage.self)
+
+        // First delivery — wait for message to arrive at subscriber
+        await transport.simulateIncoming(messageData)
+        _ = try await firstMessage(from: stream)
+
+        // Wait for the ack to be sent by listening on onSent
+        let sentStream = await transport.onSent
+        let ackSent: Data = try await firstValue(from: sentStream)
+        let ackFrame = try JSONDecoder().decode(Frame.self, from: ackSent)
+        #expect(ackFrame.kind == .control)
+
+        let acksAfterFirst = await transport.sentData.count
+
+        // Simulate retry of same frame — should re-ack but not re-deliver
+        // Use a marker on PongMessage to detect when processing is done
+        let markerData = try encodeFrame(PongMessage(count: 999))
+        let markerStream = await coordinator.messages(PongMessage.self)
+        await transport.simulateIncoming(messageData)
+        await transport.simulateIncoming(markerData)
+        _ = try await firstMessage(from: markerStream)
+
+        let acksAfterRetry = await transport.sentData.count
+        #expect(acksAfterRetry > acksAfterFirst, "Retried message should trigger another ack")
+
+        await coordinator.stopAll()
+    }
+
+    @Test("control frames are not deduped")
+    func controlFramesNotDeduped() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        let holder = AsyncHolder<ControlFrame>()
+
+        await coordinator.onControl { frame in
+            Task { await holder.send(frame) }
+        }
+        await coordinator.startAll()
+
+        let encoder = JSONEncoder()
+        let pingFrame = try Frame(control: .ping, encoder: encoder, confirmedAcks: [])
+        let pingData = try encoder.encode(pingFrame)
+
+        // Send same control frame twice — both should be processed
+        await transport.simulateIncoming(pingData)
+        let first = try await withTimeout(.seconds(2)) { await holder.next() }
+
+        await transport.simulateIncoming(pingData)
+        let second = try await withTimeout(.seconds(2)) { await holder.next() }
+
+        if case .ping = first {} else { Issue.record("Expected ping") }
+        if case .ping = second {} else { Issue.record("Expected ping on retry") }
+
+        await coordinator.stopAll()
+    }
+
+    @Test("control frame IDs do not accumulate in seenIDs")
+    func controlFrameIDsDontAccumulate() async throws {
+        let transport = MockTransport()
+        let coordinator = TransportCoordinator(transports: [transport])
+        let holder = AsyncHolder<ControlFrame>()
+
+        await coordinator.onControl { frame in
+            Task { await holder.send(frame) }
+        }
+        await coordinator.startAll()
+
+        // Send 10 control frames, wait for the last one to be processed
+        for _ in 0..<10 {
+            let data = try encodeControlFrame(.ping)
+            await transport.simulateIncoming(data)
+        }
+
+        // Wait for all 10 to be processed by reading them from the holder
+        for _ in 0..<10 {
+            _ = try await withTimeout(.seconds(2)) { await holder.next() }
+        }
+
+        #expect(await coordinator.diagnosticsSeenIDsCount == 0)
+
+        await coordinator.stopAll()
     }
 }

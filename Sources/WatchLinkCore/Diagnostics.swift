@@ -11,4 +11,5 @@ public struct WatchLinkDiagnostics: Sendable {
     public var connectionState: ConnectionState = .disconnected
     public var lastHeartbeatAt: Date?
     public var serverIP: String?
+    public var pendingConfirmationsCount: Int = 0
 }

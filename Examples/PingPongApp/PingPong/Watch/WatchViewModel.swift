@@ -2,18 +2,16 @@ import Foundation
 import WatchLink
 import WatchLinkCore
 
-@Observable
 @MainActor
-final class WatchViewModel {
-    private(set) var connectionState = "Disconnected"
-    private(set) var pingCount = 0
-    private(set) var lastRoundTripMs = 0
-    private(set) var pongCount = 0
-    private(set) var phoneTime = "—"
-    private(set) var entries: [String] = []
-    private(set) var diag = WatchLinkDiagnostics()
+final class WatchViewModel: ObservableObject {
+    @Published private(set) var connectionState = "Disconnected"
+    @Published private(set) var pingCount = 0
+    @Published private(set) var lastRoundTripMs = 0
+    @Published private(set) var pongCount = 0
+    @Published private(set) var phoneTime = "—"
+    @Published private(set) var entries: [String] = []
+    @Published private(set) var diag = WatchLinkDiagnostics()
 
-    @ObservationIgnored
     private lazy var link: WatchLink = WatchLink { [weak self] config in
         config.transports = [.watchConnectivity, .http]
         config.bleServiceUUID = BLEConstants.serviceUUID
@@ -90,7 +88,7 @@ final class WatchViewModel {
     private func refreshDiagnostics() async {
         while true {
             diag = await link.diagnostics()
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
     }
 

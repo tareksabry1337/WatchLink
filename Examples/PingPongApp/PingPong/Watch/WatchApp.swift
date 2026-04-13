@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct PingPongWatchApp: App {
-    @State private var viewModel = WatchViewModel()
+    @StateObject private var viewModel = WatchViewModel()
 
     var body: some Scene {
         WindowGroup {

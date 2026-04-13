@@ -3,71 +3,59 @@ import Foundation
 @testable import WatchLinkCore
 import WatchLinkTestSupport
 
-@Suite("Dedup Sweep")
-struct SweepTests {
-    @Test("seen IDs are cleared after sweep interval")
-    func sweepClearsSeenIDs() async throws {
-        let clock = TestClock()
+@Suite("Confirmation Cleanup")
+struct ConfirmationCleanupTests {
+
+    @Test("confirmation removes message ID from seenIDs without any timer")
+    func confirmationRemovesSeenID() async throws {
         let transport = MockTransport()
-        let coordinator = TransportCoordinator(
-            transports: [transport],
-            clock: clock.anyClock,
-            sweepInterval: .seconds(30)
-        )
+        let coordinator = TransportCoordinator(transports: [transport])
         await coordinator.startAll()
 
-        let encodedFirst = try encodeFrame(PingMessage(count: 1))
-        let stream = await coordinator.messages(PingMessage.self)
+        // Receive a message — adds to seenIDs
+        let messageData = try encodeFrame(PingMessage(count: 1))
+        let frame = try JSONDecoder().decode(Frame.self, from: messageData)
+        let pingStream = await coordinator.messages(PingMessage.self)
+        await transport.simulateIncoming(messageData)
+        _ = try await firstMessage(from: pingStream)
 
-        await transport.simulateIncoming(encodedFirst)
-        let msg1 = try await firstMessage(from: stream)
-        #expect(msg1.count == 1)
+        #expect(await coordinator.diagnosticsSeenIDsCount == 1)
 
-        await transport.simulateIncoming(encodedFirst)
+        // Receive a frame carrying confirmation for that ID
+        let confirmData = try encodeFrame(PongMessage(count: 1), confirmedAcks: [frame.id])
+        let pongStream = await coordinator.messages(PongMessage.self)
+        await transport.simulateIncoming(confirmData)
+        _ = try await firstMessage(from: pongStream)
 
-        clock.advance(by: .seconds(30))
-
-        let markerMessage = try encodeFrame(PingMessage(count: 999))
-        await transport.simulateIncoming(encodedFirst)
-        await transport.simulateIncoming(markerMessage)
-
-        let next = try await firstMessage(from: stream)
-        if next.count == 1 {
-            let marker = try await firstMessage(from: stream)
-            #expect(marker.count == 999)
-        } else {
-            #expect(next.count == 999)
-        }
+        // seenIDs has 1 entry (PongMessage's own ID) — original was removed by confirmation
+        #expect(await coordinator.diagnosticsSeenIDsCount == 1)
 
         await coordinator.stopAll()
     }
 
-    @Test("messages are deduped within sweep window")
-    func dedupWithinWindow() async throws {
-        let clock = TestClock()
+    @Test("dedup holds until confirmation is received")
+    func dedupHoldsWithoutConfirmation() async throws {
         let transport = MockTransport()
-        let coordinator = TransportCoordinator(
-            transports: [transport],
-            clock: clock.anyClock,
-            sweepInterval: .seconds(30)
-        )
+        let coordinator = TransportCoordinator(transports: [transport])
         await coordinator.startAll()
 
-        let duplicateFrame = try encodeFrame(PingMessage(count: 1))
-        let uniqueFrame = try encodeFrame(PingMessage(count: 2))
-        let stream = await coordinator.messages(PingMessage.self)
+        let encoder = JSONEncoder()
+        let duplicateFrame = try Frame(wrapping: PingMessage(count: 1), encoder: encoder, confirmedAcks: [])
+        let duplicateData = try encoder.encode(duplicateFrame)
+        let uniqueData = try encodeFrame(PingMessage(count: 2))
 
-        await transport.simulateIncoming(duplicateFrame)
-        await transport.simulateIncoming(duplicateFrame)
-        await transport.simulateIncoming(uniqueFrame)
+        let results = try await withTimeout(.seconds(2)) {
+            let stream = await coordinator.messages(PingMessage.self)
+            await transport.simulateIncoming(duplicateData)
+            await transport.simulateIncoming(duplicateData) // duplicate — should be dropped
+            await transport.simulateIncoming(uniqueData)
 
-        let collector = AsyncCollector<PingMessage>()
-        let results: [PingMessage] = try await withTimeout(.seconds(1)) {
+            var collected: [PingMessage] = []
             for await msg in stream {
-                await collector.append(msg.value)
-                if await collector.count == 2 { break }
+                collected.append(msg.value)
+                if collected.count == 2 { break }
             }
-            return await collector.values
+            return collected
         }
 
         #expect(results.count == 2)
@@ -77,32 +65,29 @@ struct SweepTests {
         await coordinator.stopAll()
     }
 
-    @Test("sweep doesn't run before interval elapses")
-    func noEarlySweep() async throws {
-        let clock = TestClock()
+    @Test("seenIDs does not grow from control frame traffic")
+    func seenIDsStableWithControlTraffic() async throws {
         let transport = MockTransport()
-        let coordinator = TransportCoordinator(
-            transports: [transport],
-            clock: clock.anyClock,
-            sweepInterval: .seconds(30)
-        )
+        let coordinator = TransportCoordinator(transports: [transport])
+        let holder = AsyncHolder<ControlFrame>()
+
+        await coordinator.onControl { frame in
+            Task { await holder.send(frame) }
+        }
         await coordinator.startAll()
 
-        let frame = try encodeFrame(PingMessage(count: 1))
-        let uniqueFrame = try encodeFrame(PingMessage(count: 99))
-        let stream = await coordinator.messages(PingMessage.self)
+        // Send many pings — none should accumulate in seenIDs
+        for _ in 0..<20 {
+            let data = try encodeControlFrame(.ping)
+            await transport.simulateIncoming(data)
+        }
 
-        await transport.simulateIncoming(frame)
-        let first = try await firstMessage(from: stream)
-        #expect(first.count == 1)
+        // Wait for all 20 to be processed
+        for _ in 0..<20 {
+            _ = try await withTimeout(.seconds(2)) { await holder.next() }
+        }
 
-        clock.advance(by: .seconds(15))
-
-        await transport.simulateIncoming(frame)
-        await transport.simulateIncoming(uniqueFrame)
-
-        let second = try await firstMessage(from: stream)
-        #expect(second.count == 99)
+        #expect(await coordinator.diagnosticsSeenIDsCount == 0)
 
         await coordinator.stopAll()
     }

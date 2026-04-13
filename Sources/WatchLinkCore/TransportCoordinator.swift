@@ -1,16 +1,14 @@
 import Foundation
 
-package actor TransportCoordinator {
+@WatchLinkActor
+package final class TransportCoordinator {
     package private(set) var transports: [any Transport]
     private let clock: AnyClock
-    private let sweepInterval: Duration
     private let retryInterval: Duration
     private let logger: WatchLinkLogger
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private var seenIDs: Set<String> = []
-    private var ackedIDs: Set<String> = []
-    private var sweepTask: Task<Void, Never>?
     private var reachabilityTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
     private var subscriptions: [Channel: [UUID: @Sendable (Data, String) -> Void]] = [:]
@@ -18,40 +16,35 @@ package actor TransportCoordinator {
     private var heartbeatHandler: (@Sendable () -> Void)?
     private var ingestionTask: Task<Void, Never>?
     private var unackedMessages: [String: UnackedEntry] = [:]
+    private var pendingConfirmations: Set<String> = []
 
     private struct UnackedEntry {
         let data: Data
     }
 
-    package init(
+    package nonisolated init(
         transports: [any Transport],
         clock: AnyClock = AnyClock(),
-        sweepInterval: Duration = .seconds(30),
         retryInterval: Duration = .seconds(5),
         logger: WatchLinkLogger = .osLog
     ) {
         self.transports = transports
         self.clock = clock
-        self.sweepInterval = sweepInterval
         self.retryInterval = retryInterval
         self.logger = logger
     }
 
-    package func startAll() async {
+    package func startAll() {
         for transport in transports {
-            await transport.start()
+            transport.start()
         }
 
         ingestionTask = Task { [weak self] in
             await self?.ingest()
         }
 
-        sweepTask = Task { [weak self] in
-            await self?.sweepLoop()
-        }
-
         reachabilityTask = Task { [weak self] in
-            await self?.watchReachability()
+            await self?.observeReachability()
         }
 
         retryTask = Task { [weak self] in
@@ -61,30 +54,27 @@ package actor TransportCoordinator {
 
     package func stopAll() async {
         for transport in transports {
-            await transport.stop()
+            transport.stop()
         }
 
         ingestionTask?.cancel()
-        sweepTask?.cancel()
         reachabilityTask?.cancel()
         retryTask?.cancel()
 
         await ingestionTask?.value
-        await sweepTask?.value
         await reachabilityTask?.value
         await retryTask?.value
 
         reachabilityTask = nil
         ingestionTask = nil
-        sweepTask = nil
         retryTask = nil
         controlHandler = nil
         heartbeatHandler = nil
 
         subscriptions.removeAll()
         seenIDs.removeAll()
-        ackedIDs.removeAll()
         unackedMessages.removeAll()
+        pendingConfirmations.removeAll()
     }
 
     package func onControl(_ handler: @escaping @Sendable (ControlFrame) -> Void) {
@@ -95,19 +85,21 @@ package actor TransportCoordinator {
         heartbeatHandler = handler
     }
 
-    package func send<M: WatchLinkMessage>(_ message: M) async throws where M.Response == NoResponse {
-        let frame = try Frame(wrapping: message, encoder: encoder)
+    package func send<M: WatchLinkMessage>(_ message: M) throws where M.Response == NoResponse {
+        let confirmations = flushConfirmations()
+        let frame = try Frame(wrapping: message, encoder: encoder, confirmedAcks: confirmations)
         let data = try encoder.encode(frame)
         unackedMessages[frame.id] = UnackedEntry(data: data)
         logger.debug("Send \(frame.id) on \(M.channel)")
-        await sendOrWait(data)
+        sendOrWait(data)
     }
 
     package func send<M: WatchLinkMessage>(
         _ message: M,
         timeout: Duration = .seconds(30)
     ) async throws -> M.Response {
-        let frame = try Frame(wrapping: message, encoder: encoder)
+        let confirmations = flushConfirmations()
+        let frame = try Frame(wrapping: message, encoder: encoder, confirmedAcks: confirmations)
         let data = try encoder.encode(frame)
         unackedMessages[frame.id] = UnackedEntry(data: data)
         logger.debug("Query \(frame.id) on \(M.channel)")
@@ -130,7 +122,7 @@ package actor TransportCoordinator {
                     return result
                 }
             }
-            
+
             throw WatchLinkError.requestTimedOut
         }
 
@@ -148,13 +140,14 @@ package actor TransportCoordinator {
         }
     }
 
-    package func sendControl(_ controlFrame: ControlFrame) async throws {
-        let frame = try Frame(control: controlFrame, encoder: encoder)
+    package func sendControl(_ controlFrame: ControlFrame) throws {
+        let confirmations = flushConfirmations()
+        let frame = try Frame(control: controlFrame, encoder: encoder, confirmedAcks: confirmations)
         let data = try encoder.encode(frame)
 
         var reachable: [any Transport] = []
         for transport in transports {
-            if await transport.isReachable {
+            if transport.isReachable {
                 reachable.append(transport)
             }
         }
@@ -169,18 +162,25 @@ package actor TransportCoordinator {
 
     package var diagnosticsSeenIDsCount: Int { seenIDs.count }
     package var diagnosticsUnackedCount: Int { unackedMessages.count }
+    package var diagnosticsPendingConfirmationsCount: Int { pendingConfirmations.count }
 
-    package func hasReachableTransport() async -> Bool {
+    package func hasReachableTransport() -> Bool {
         for transport in transports {
-            if await transport.isReachable { return true }
+            if transport.isReachable { return true }
         }
         return false
     }
 
-    private func sendOrWait(_ data: Data) async {
+    private func flushConfirmations() -> [String] {
+        let confirmations = Array(pendingConfirmations)
+        pendingConfirmations.removeAll()
+        return confirmations
+    }
+
+    private func sendOrWait(_ data: Data) {
         var reachable: [any Transport] = []
         for transport in transports {
-            if await transport.isReachable {
+            if transport.isReachable {
                 reachable.append(transport)
             }
         }
@@ -220,14 +220,15 @@ package actor TransportCoordinator {
         }
     }
 
-    private func watchReachability() async {
+    private func observeReachability() async {
+        let streams = transports.map(\.reachabilityChanges)
+
         await withTaskGroup(of: Void.self) { group in
-            for transport in transports {
+            for stream in streams {
                 group.addTask { [weak self] in
-                    guard let self else { return }
-                    for await reachable in await transport.reachabilityChanges {
+                    for await reachable in stream {
                         if reachable {
-                            await self.retryUnacked()
+                            await self?.retryUnacked()
                         }
                     }
                 }
@@ -258,12 +259,13 @@ package actor TransportCoordinator {
     }
 
     private func ingest() async {
+        let streams = transports.map { $0.incoming() }
+
         await withTaskGroup(of: Void.self) { group in
-            for transport in transports {
+            for stream in streams {
                 group.addTask { [weak self] in
-                    guard let self else { return }
-                    for await incoming in await transport.incoming() {
-                        await self.route(incoming)
+                    for await incoming in stream {
+                        await self?.route(incoming)
                     }
                 }
             }
@@ -272,7 +274,7 @@ package actor TransportCoordinator {
         }
     }
 
-    private func route(_ incoming: IncomingMessage) async {
+    private func route(_ incoming: IncomingMessage) {
         let frame: Frame
         do {
             frame = try decoder.decode(Frame.self, from: incoming.data)
@@ -283,10 +285,14 @@ package actor TransportCoordinator {
 
         heartbeatHandler?()
 
+        // Process piggybacked ack confirmations
+        for id in frame.confirmedAcks {
+            seenIDs.remove(id)
+        }
+
         switch frame.kind {
         case .control:
-            guard dedup(frame.id) else { return }
-
+            // Control frames are idempotent — no dedup needed
             do {
                 let control = try decoder.decode(ControlFrame.self, from: frame.payload)
                 switch control {
@@ -294,6 +300,7 @@ package actor TransportCoordinator {
                     if unackedMessages.removeValue(forKey: ackedID) != nil {
                         logger.debug("Acked \(ackedID) (unacked: \(self.unackedMessages.count))")
                     }
+                    pendingConfirmations.insert(ackedID)
                 default:
                     controlHandler?(control)
                 }
@@ -307,11 +314,10 @@ package actor TransportCoordinator {
                 return
             }
 
-            if !ackedIDs.contains(frame.id) {
-                ackedIDs.insert(frame.id)
-                try? await sendControl(.ack(frame.id))
-            }
+            // Always send ack — the sender needs it to stop retrying
+            try? sendControl(.ack(frame.id))
 
+            // Dedup: only deliver to subscribers once
             guard dedup(frame.id) else {
                 logger.debug("Dedup dropped \(frame.id)")
                 return
@@ -345,33 +351,20 @@ package actor TransportCoordinator {
         return true
     }
 
-    private func sweepLoop() async {
-        while !Task.isCancelled {
-            try? await clock.sleep(for: sweepInterval)
-            guard !Task.isCancelled else { return }
-            let idCount = seenIDs.count
-            seenIDs.removeAll()
-            ackedIDs.removeAll()
-            if idCount > 0 {
-                logger.debug("Sweep: cleared \(idCount) IDs")
-            }
-        }
-    }
-
     private func retryLoop() async {
         while !Task.isCancelled {
             try? await clock.sleep(for: retryInterval)
             guard !Task.isCancelled else { return }
-            await retryUnacked()
+            retryUnacked()
         }
     }
 
-    private func retryUnacked() async {
+    private func retryUnacked() {
         guard !unackedMessages.isEmpty else { return }
 
         var reachable: [any Transport] = []
         for transport in transports {
-            if await transport.isReachable {
+            if transport.isReachable {
                 reachable.append(transport)
             }
         }

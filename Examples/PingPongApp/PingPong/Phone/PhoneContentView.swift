@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PhoneContentView: View {
-    let viewModel: PhoneViewModel
+    @ObservedObject var viewModel: PhoneViewModel
 
     var body: some View {
         NavigationStack {

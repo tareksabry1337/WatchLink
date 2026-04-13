@@ -7,7 +7,6 @@ public struct WatchLinkConfiguration: Sendable {
     public var httpPort: UInt16 = 8188
     public var pingInterval: Duration = .seconds(5)
     package var sseHeartbeatInterval: Duration = .seconds(15)
-    package var sweepInterval: Duration = .seconds(30)
     package var retryInterval: Duration = .seconds(5)
     public var maxPingFailures: Int = 3
     public var logger: WatchLinkLogger = .osLog
