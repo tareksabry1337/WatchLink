@@ -17,6 +17,7 @@ package final class TransportCoordinator {
     private var ingestionTask: Task<Void, Never>?
     private var unackedMessages: [String: UnackedEntry] = [:]
     private var pendingConfirmations: Set<String> = []
+    private var sendTasks: [Task<Void, Never>] = []
 
     private struct UnackedEntry {
         let data: Data
@@ -70,6 +71,9 @@ package final class TransportCoordinator {
         retryTask = nil
         controlHandler = nil
         heartbeatHandler = nil
+
+        for task in sendTasks { task.cancel() }
+        sendTasks.removeAll()
 
         subscriptions.removeAll()
         seenIDs.removeAll()
@@ -194,7 +198,7 @@ package final class TransportCoordinator {
     }
 
     private func sendToReachable(_ data: Data, reachable: [any Transport]) {
-        Task { [logger] in
+        let task = Task { [logger] in
             var anySucceeded = false
 
             await withTaskGroup(of: Bool.self) { group in
@@ -218,6 +222,8 @@ package final class TransportCoordinator {
                 logger.warning("All \(reachable.count) transports failed to send")
             }
         }
+        sendTasks.removeAll { $0.isCancelled }
+        sendTasks.append(task)
     }
 
     private func observeReachability() async {

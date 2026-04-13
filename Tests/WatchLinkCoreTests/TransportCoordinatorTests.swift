@@ -632,4 +632,38 @@ struct TransportCoordinatorTests {
 
         await coordinator.stopAll()
     }
+
+    // MARK: - Retry Loop
+
+    @Test("retry loop resends unacked messages after retryInterval")
+    func retryLoopResends() async throws {
+        let clock = TestClock()
+        let transport = MockTransport()
+        await transport.setUnreachable()
+
+        let coordinator = TransportCoordinator(
+            transports: [transport],
+            clock: clock.anyClock,
+            retryInterval: .seconds(5)
+        )
+        await coordinator.startAll()
+
+        // Send while unreachable — queued in unackedMessages, nothing sent
+        try await coordinator.send(PingMessage(count: 1))
+        let sentBefore = await transport.sentData.count
+        #expect(sentBefore == 0)
+
+        // Come back online
+        await transport.setReachable()
+
+        // Advance past retryInterval — retryLoop should fire and resend
+        let sentStream = await transport.onSent
+        clock.advance(by: .seconds(5))
+
+        let data: Data = try await firstValue(from: sentStream)
+        let frame = try JSONDecoder().decode(Frame.self, from: data)
+        #expect(frame.kind == .message)
+
+        await coordinator.stopAll()
+    }
 }
