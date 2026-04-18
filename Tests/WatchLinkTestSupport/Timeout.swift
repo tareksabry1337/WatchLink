@@ -15,7 +15,9 @@ public func withTimeout<T: Sendable>(
             try await Task.sleep(nanoseconds: duration.nanoseconds)
             throw TestTimeoutError()
         }
-        let result = try await group.next()!
+        guard let result = try await group.next() else {
+            throw TestTimeoutError()
+        }
         group.cancelAll()
         return result
     }
