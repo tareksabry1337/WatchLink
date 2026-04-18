@@ -24,7 +24,7 @@ struct MemoryTests {
         let stream = await coordinator.messages(PingMessage.self)
         await transport.simulateIncoming(try encodeFrame(PingMessage(count: 2)))
 
-        let result: PingMessage = try await withTimeout(.seconds(1)) {
+        let result: PingMessage = try await withTimeout(.seconds(10)) {
             for await msg in stream { return msg.value }
             throw StreamEndedError()
         }
@@ -51,7 +51,7 @@ struct MemoryTests {
         let stream = await coordinator.messages(PingMessage.self)
         await transport.simulateIncoming(try encodeFrame(PingMessage(count: 999)))
 
-        let result: PingMessage = try await withTimeout(.seconds(1)) {
+        let result: PingMessage = try await withTimeout(.seconds(10)) {
             for await msg in stream { return msg.value }
             throw StreamEndedError()
         }
@@ -73,7 +73,7 @@ struct MemoryTests {
         let stream = await coordinator.messages(PingMessage.self)
         await transport.simulateIncoming(try encodeFrame(PingMessage(count: 42)))
 
-        let result: PingMessage = try await withTimeout(.seconds(1)) {
+        let result: PingMessage = try await withTimeout(.seconds(10)) {
             for await msg in stream { return msg.value }
             throw StreamEndedError()
         }

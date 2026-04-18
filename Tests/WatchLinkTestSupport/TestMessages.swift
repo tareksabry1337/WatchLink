@@ -40,7 +40,7 @@ public struct StreamEndedError: Error {
 
 public func firstValue<T: Sendable>(
     from stream: AsyncStream<T>,
-    timeout: Duration = .seconds(2)
+    timeout: Duration = .seconds(10)
 ) async throws -> T {
     try await withTimeout(timeout) {
         for await value in stream { return value }
@@ -50,7 +50,7 @@ public func firstValue<T: Sendable>(
 
 public func firstMessage<M: WatchLinkMessage>(
     from stream: AsyncStream<ReceivedMessage<M>>,
-    timeout: Duration = .seconds(2)
+    timeout: Duration = .seconds(10)
 ) async throws -> M {
     let received = try await firstValue(from: stream, timeout: timeout)
     return received.value

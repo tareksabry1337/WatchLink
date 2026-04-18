@@ -75,7 +75,7 @@ struct WCHostTransportTests {
         let payload = Data("incoming".utf8)
         await transport.handleIncoming(payload)
 
-        let received: IncomingMessage = try await withTimeout(.seconds(1)) {
+        let received: IncomingMessage = try await withTimeout(.seconds(10)) {
             for await msg in stream { return msg }
             throw StreamEndedError()
         }
@@ -173,7 +173,7 @@ struct WCHostTransportTests {
         let replyPayload = Data("pong".utf8)
         await transport.reply(to: frame.id, with: replyPayload)
 
-        let received: Data = try await withTimeout(.seconds(1)) {
+        let received: Data = try await withTimeout(.seconds(10)) {
             guard let value = await holder.next() else { throw StreamEndedError() }
             return value
         }

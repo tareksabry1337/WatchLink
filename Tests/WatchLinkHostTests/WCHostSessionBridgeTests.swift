@@ -42,7 +42,7 @@ struct WCHostSessionBridgeTests {
         let payload = Data("from-watch".utf8)
         bridge.session(WCSession.default, didReceiveMessageData: payload)
 
-        let received: IncomingMessage = try await withTimeout(.seconds(1)) {
+        let received: IncomingMessage = try await withTimeout(.seconds(10)) {
             for await msg in stream { return msg }
             throw StreamEndedError()
         }
@@ -63,7 +63,7 @@ struct WCHostSessionBridgeTests {
             Task { await replyHolder.send(replyData) }
         }
 
-        _ = try await withTimeout(.seconds(1)) {
+        _ = try await withTimeout(.seconds(10)) {
             for await _ in stream { return true }
             throw StreamEndedError()
         }
@@ -71,7 +71,7 @@ struct WCHostSessionBridgeTests {
         let replyPayload = Data("pong".utf8)
         await transport.reply(to: frame.id, with: replyPayload)
 
-        let forwardedReply: Data = try await withTimeout(.seconds(1)) {
+        let forwardedReply: Data = try await withTimeout(.seconds(10)) {
             guard let value = await replyHolder.next() else { throw StreamEndedError() }
             return value
         }

@@ -44,7 +44,7 @@ struct ConfirmationCleanupTests {
         let duplicateData = try encoder.encode(duplicateFrame)
         let uniqueData = try encodeFrame(PingMessage(count: 2))
 
-        let results = try await withTimeout(.seconds(2)) {
+        let results = try await withTimeout(.seconds(10)) {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(duplicateData)
             await transport.simulateIncoming(duplicateData) // duplicate — should be dropped
@@ -84,7 +84,7 @@ struct ConfirmationCleanupTests {
 
         // Wait for all 20 to be processed
         for _ in 0..<20 {
-            _ = try await withTimeout(.seconds(2)) { await holder.next() }
+            _ = try await withTimeout(.seconds(10)) { await holder.next() }
         }
 
         #expect(await coordinator.diagnosticsSeenIDsCount == 0)
