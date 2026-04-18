@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: xcodebuild test (iOS Simulator)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+      - name: Swift version
+        run: swift --version
+      - name: Test
+        run: |
+          xcodebuild test \
+            -scheme WatchLink-Package \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+
+  ios-build:
+    name: xcodebuild (iOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+      - name: Build WatchLinkHost for iOS Simulator
+        run: |
+          xcodebuild \
+            -scheme WatchLinkHost \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Release \
+            build
+
+  watchos-build:
+    name: xcodebuild (watchOS)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app
+      - name: Build WatchLink for watchOS Simulator
+        run: |
+          xcodebuild \
+            -scheme WatchLink \
+            -destination 'generic/platform=watchOS Simulator' \
+            -configuration Release \
+            build

@@ -95,7 +95,7 @@ extension WCSession: WCSessionProtocol {
     }
 }
 
-public final class WCSessionBridge: NSObject, WCSessionDelegate, @unchecked Sendable {
+final class WCSessionBridge: NSObject, WCSessionDelegate, @unchecked Sendable {
     private weak var transport: WCTransport?
 
     package init(transport: WCTransport, session: WCSession = .default) {

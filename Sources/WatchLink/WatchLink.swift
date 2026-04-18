@@ -5,6 +5,10 @@ import WatchLinkCore
 import WatchKit
 #endif
 
+/// Watch-side entry point to the multi-transport link.
+///
+/// Create one instance, call `connect()`, then `send(_:)` and iterate `messages(_:)`.
+/// All public methods are isolated to `@WatchLinkActor`.
 @WatchLinkActor
 public final class WatchLink: Sendable {
     private let coordinator: TransportCoordinator
@@ -15,6 +19,7 @@ public final class WatchLink: Sendable {
     private let sessionBridge: WCSessionBridge?
     private var bleDiscoveryTask: Task<Void, Never>?
 
+    /// Builds a `WatchLink` with a configured transport stack.
     public nonisolated init(_ configure: (inout WatchLinkConfiguration) -> Void) {
         var config = WatchLinkConfiguration()
         configure(&config)
@@ -57,6 +62,7 @@ public final class WatchLink: Sendable {
         self.connectionManager = ConnectionManager(coordinator: coordinator, config: config)
     }
 
+    /// Starts every configured transport, begins BLE scanning, and observes app lifecycle.
     public func connect() async {
         coordinator.onHeartbeat { [weak connectionManager] in
             Task {
@@ -70,6 +76,7 @@ public final class WatchLink: Sendable {
         await observeAppLifecycle()
     }
 
+    /// Stops every transport, cancels BLE scanning, and tears down lifecycle observers.
     public func disconnect() async {
         connectionManager.disconnect()
         bleDiscoveryTask?.cancel()
@@ -78,26 +85,32 @@ public final class WatchLink: Sendable {
         await coordinator.stopAll()
     }
 
+    /// Sends a fire-and-forget message. Queued and retried until the peer acks.
     public func send<M: WatchLinkMessage>(_ message: M) throws where M.Response == NoResponse {
         try coordinator.send(message)
     }
 
+    /// Sends a message and awaits the peer's reply, or throws `WatchLinkError.requestTimedOut`.
     public func send<M: WatchLinkMessage>(_ message: M, timeout: Duration = .seconds(30)) async throws -> M.Response {
         try await coordinator.send(message, timeout: timeout)
     }
 
+    /// Sends `message` as the reply to a previously-received request.
     public func reply<M: WatchLinkMessage>(with message: M, to received: ReceivedMessage<some WatchLinkMessage>) async throws {
         try await coordinator.reply(with: message, to: received.frameID)
     }
 
+    /// Async stream of messages of the given type arriving from the peer.
     public func messages<M: WatchLinkMessage>(_ type: M.Type) -> AsyncStream<ReceivedMessage<M>> {
         coordinator.messages(type)
     }
 
+    /// Stream of connection-state transitions. Yields the current state to new subscribers.
     public var connectionState: AsyncStream<ConnectionState> {
         get { connectionManager.connectionState }
     }
 
+    /// Snapshot of transport internals for debug UI and instrumentation.
     public func diagnostics() -> WatchLinkDiagnostics {
         var diagnostics = WatchLinkDiagnostics()
         diagnostics.pendingQueueCount = coordinator.diagnosticsPendingCount

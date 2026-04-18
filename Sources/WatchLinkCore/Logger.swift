@@ -1,9 +1,14 @@
 import os
 
+/// Pluggable logger for WatchLink's transport internals.
+///
+/// Configure on `WatchLinkConfiguration.logger`. Use `.osLog` for unified logging,
+/// `.none` to silence, or a custom instance to route messages somewhere else.
 public struct WatchLinkLogger: Sendable {
     private let minimumLevel: LogLevel
     private let handler: @Sendable (LogLevel, String) -> Void
 
+    /// Creates a logger that forwards messages at or above `minimumLevel` to `handler`.
     public init(
         minimumLevel: LogLevel = .debug,
         handler: @escaping @Sendable (LogLevel, String) -> Void
@@ -32,6 +37,7 @@ public struct WatchLinkLogger: Sendable {
         handler(.error, message())
     }
 
+    /// Routes output to Apple's unified logging (`os.Logger`).
     public static let osLog = WatchLinkLogger { level, message in
         if #available(iOS 14.0, watchOS 7.0, *) {
             let logger = os.Logger(subsystem: "WatchLink", category: "Transport")
@@ -47,5 +53,6 @@ public struct WatchLinkLogger: Sendable {
         }
     }
 
+    /// Drops every log message.
     public static let none = WatchLinkLogger(minimumLevel: .none) { _, _ in }
 }
