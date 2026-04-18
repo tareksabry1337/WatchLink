@@ -85,7 +85,7 @@ for await request in host.messages(TimeRequest.self) {
 
 The phone runs an HTTP server on the local network and advertises its IP over BLE. The Watch discovers it, connects over HTTP, and receives push via SSE. WatchConnectivity runs as a parallel transport. Every message is acked by the receiving device and retried until confirmed. Duplicates are caught by frame ID.
 
-For the full story behind WatchLink, read the blog post: [tarek-builds.dev](https://tarek-builds.dev)
+For the full story behind WatchLink, read the blog post: [WatchConnectivity was failing 40% of the time, so I stopped using it](https://tarek-builds.mataroa.blog/p/watchconnectivity-was-failing-40-of-the-time-so-i-stopped-using-it/)
 
 ## Things you should know
 

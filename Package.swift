@@ -43,5 +43,10 @@ let package = Package(
             dependencies: ["WatchLink", "WatchLinkCore", "WatchLinkTestSupport"],
             path: "Tests/WatchLinkTests"
         ),
+        .testTarget(
+            name: "WatchLinkHostTests",
+            dependencies: ["WatchLinkHost", "WatchLinkCore", "WatchLinkTestSupport"],
+            path: "Tests/WatchLinkHostTests"
+        ),
     ]
 )

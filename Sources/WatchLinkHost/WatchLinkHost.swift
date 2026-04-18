@@ -1,3 +1,4 @@
+#if os(iOS)
 import Foundation
 import WatchConnectivity
 import WatchLinkCore
@@ -177,3 +178,4 @@ public final class WatchLinkHost: Sendable {
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(iOS)
 import Foundation
 import Network
 
@@ -63,3 +64,4 @@ enum NetworkUtils {
         return address
     }
 }
+#endif

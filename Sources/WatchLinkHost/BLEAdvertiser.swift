@@ -1,3 +1,4 @@
+#if os(iOS)
 import Foundation
 @preconcurrency import CoreBluetooth
 import WatchLinkCore
@@ -97,3 +98,4 @@ private final class PeripheralDelegate: NSObject, CBPeripheralManagerDelegate, @
         onSubscription?(central)
     }
 }
+#endif

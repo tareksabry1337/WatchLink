@@ -1,3 +1,4 @@
+#if os(iOS)
 import Foundation
 import Network
 import WatchLinkCore
@@ -23,6 +24,8 @@ package final class HTTPServer: Transport {
     private var _isReachable = false
 
     package var isReachable: Bool { _isReachable && !sseClients.isEmpty }
+
+    package var boundPort: UInt16? { listener?.port?.rawValue }
 
     package var reachabilityChanges: AsyncStream<Bool> {
         AsyncStream { continuation in
@@ -164,7 +167,7 @@ package final class HTTPServer: Transport {
                 return
             }
 
-            let contentLength = self.parseContentLength(raw)
+            let contentLength = HTTPRequestRouter.parseContentLength(raw)
             let bodyStart = raw.distance(from: raw.startIndex, to: separatorRange.upperBound)
             let bodyReceived = buffer.count - bodyStart
 
@@ -179,69 +182,36 @@ package final class HTTPServer: Transport {
         }
     }
 
-    private nonisolated func parseContentLength(_ raw: String) -> Int {
-        for line in raw.components(separatedBy: "\r\n") {
-            if line.lowercased().hasPrefix("content-length:") {
-                let value = line.dropFirst("content-length:".count).trimmingCharacters(in: .whitespaces)
-                return Int(value) ?? 0
-            }
+    private func routeRequest(data: Data, connection: NWConnection) {
+        let parsed = HTTPRequestRouter.parse(data)
+        logger.debug("HTTP server: \(parsed.route?.path ?? "unknown") (\(parsed.body?.count ?? 0) bytes)")
+
+        for effect in HTTPRequestRouter.effects(for: parsed) {
+            apply(effect, on: connection)
         }
-        return 0
     }
 
-    private func routeRequest(data: Data, connection: NWConnection) {
-        let raw = String(data: data, encoding: .utf8) ?? ""
-        let request = parseHTTPRequest(raw)
+    private func apply(_ effect: HTTPEffect, on connection: NWConnection) {
+        switch effect {
+        case .yieldIncoming(let data):
+            incomingContinuation?.yield(IncomingMessage(data: data))
 
-        switch request.route {
-        case .message:
-            logger.debug("HTTP server: POST /message (\(request.body?.count ?? 0) bytes)")
-            if let body = request.body {
-                incomingContinuation?.yield(IncomingMessage(data: body))
-            }
-            respond(status: .ok, on: connection)
+        case .holdConnection(let frameID):
+            pendingReplyConnections[frameID] = connection
+            logger.debug("HTTP server: holding connection for reply \(frameID)")
 
-        case .request:
-            logger.debug("HTTP server: POST /request (\(request.body?.count ?? 0) bytes)")
-            if let body = request.body {
-                handleSendWithReply(body: body, connection: connection)
-            } else {
-                respond(status: .notFound, on: connection)
+        case .resolveReply(let frameID, let body):
+            if let continuation = pendingRequestContinuations.removeValue(forKey: frameID) {
+                continuation.resume(returning: body)
             }
 
-        case .reply:
-            if let frameID = request.headers["x-frame-id"], let body = request.body {
-                logger.debug("HTTP server: POST /reply for \(frameID) (\(body.count) bytes)")
-                if let continuation = pendingRequestContinuations.removeValue(forKey: frameID) {
-                    continuation.resume(returning: body)
-                }
-            }
-            respond(status: .ok, on: connection)
-
-        case .events:
+        case .startSSE:
             logger.info("HTTP server: SSE client connecting")
             startSSEStream(on: connection)
 
-        case .health:
-            respond(status: .ok, on: connection)
-
-        case nil:
-            logger.warning("HTTP server: unknown route")
-            respond(status: .notFound, on: connection)
+        case .respond(let status, let body):
+            respond(status: status, body: body, on: connection)
         }
-    }
-
-    private func handleSendWithReply(body: Data, connection: NWConnection) {
-        guard let frame = try? JSONDecoder().decode(Frame.self, from: body) else {
-            logger.warning("HTTP server: failed to decode frame")
-            respond(status: .notFound, on: connection)
-            return
-        }
-        let frameID = frame.id
-
-        pendingReplyConnections[frameID] = connection
-        logger.debug("HTTP server: holding connection for reply \(frameID)")
-        incomingContinuation?.yield(IncomingMessage(data: body))
     }
 
     package func reply(to frameID: String, with data: Data) {
@@ -344,52 +314,6 @@ package final class HTTPServer: Transport {
         }
     }
 
-    private struct ParsedRequest {
-        let route: HTTPRoute?
-        let headers: [String: String]
-        let body: Data?
-    }
-
-    private func parseHTTPRequest(_ raw: String) -> ParsedRequest {
-        let lines = raw.components(separatedBy: "\r\n")
-        let requestLine = lines.first?.components(separatedBy: " ") ?? []
-        let method = HTTPMethod(rawValue: requestLine.count > 0 ? requestLine[0] : "")
-        let path = requestLine.count > 1 ? requestLine[1] : ""
-        let route = method.flatMap { HTTPRoute(method: $0, path: path) }
-
-        var headers: [String: String] = [:]
-        for line in lines.dropFirst() {
-            guard !line.isEmpty else { break }
-            if let colonIndex = line.firstIndex(of: ":") {
-                let key = line[..<colonIndex].trimmingCharacters(in: .whitespaces).lowercased()
-                let value = line[line.index(after: colonIndex)...].trimmingCharacters(in: .whitespaces)
-                headers[key] = value
-            }
-        }
-
-        var body: Data?
-        if let separatorRange = raw.range(of: "\r\n\r\n") {
-            let bodyString = String(raw[separatorRange.upperBound...])
-            if !bodyString.isEmpty {
-                body = Data(bodyString.utf8)
-            }
-        }
-
-        return ParsedRequest(route: route, headers: headers, body: body)
-    }
-
-    private enum HTTPStatus: Int, Sendable {
-        case ok = 200
-        case notFound = 404
-
-        var text: String {
-            switch self {
-            case .ok: "OK"
-            case .notFound: "Not Found"
-            }
-        }
-    }
-
     private func respond(status: HTTPStatus, body: Data? = nil, on connection: NWConnection) {
         var header = "HTTP/1.1 \(status.rawValue) \(status.text)\r\n"
         header += "Content-Length: \(body?.count ?? 0)\r\n"
@@ -408,3 +332,4 @@ package final class HTTPServer: Transport {
         reachabilityContinuation?.yield(value)
     }
 }
+#endif

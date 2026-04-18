@@ -6,6 +6,8 @@ public final class MockWCSession: WCSessionProtocol, @unchecked Sendable {
     public var activateCalled = false
     public var sentData: [Data] = []
     public var shouldFail = false
+    public var replyData: Data?
+    public var replyError: Error?
 
     public init() {}
 
@@ -20,8 +22,13 @@ public final class MockWCSession: WCSessionProtocol, @unchecked Sendable {
     ) {
         if shouldFail {
             errorHandler?(WatchLinkError.sendFailed("Mock WC failure"))
-        } else {
-            sentData.append(data)
+            return
+        }
+        sentData.append(data)
+        if let replyError {
+            errorHandler?(replyError)
+        } else if let replyData {
+            replyHandler?(replyData)
         }
     }
 }

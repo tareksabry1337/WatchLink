@@ -1,3 +1,4 @@
+#if os(iOS)
 import Foundation
 import WatchConnectivity
 import WatchLinkCore
@@ -145,3 +146,4 @@ final class WCHostSessionBridge: NSObject, WCSessionDelegate, @unchecked Sendabl
         }
     }
 }
+#endif
