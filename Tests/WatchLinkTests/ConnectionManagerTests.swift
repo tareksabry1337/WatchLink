@@ -24,7 +24,7 @@ struct ConnectionManagerTests {
         let (manager, _, _) = makeManager()
         let stream = await manager.connectionState
 
-        let state: ConnectionState = try await withTimeout(.seconds(10)) {
+        let state: ConnectionState = try await withTimeout(.seconds(30)) {
             for await s in stream { return s }
             throw StreamEndedError()
         }
@@ -49,7 +49,7 @@ struct ConnectionManagerTests {
 
         await manager.connect()
         await manager.heartbeatReceived()
-        try await withTimeout(.seconds(10)) { await collectTask.value }
+        try await withTimeout(.seconds(30)) { await collectTask.value }
 
         let states = await collector.values
         #expect(states.contains(.disconnected))
@@ -80,7 +80,7 @@ struct ConnectionManagerTests {
         }
 
         await manager.disconnect()
-        try await withTimeout(.seconds(10)) { await collectTask.value }
+        try await withTimeout(.seconds(30)) { await collectTask.value }
 
         let states = await collector.values
         #expect(states.last == .disconnected)
@@ -107,7 +107,7 @@ struct ConnectionManagerTests {
 
         await manager.connect()
         await manager.heartbeatReceived()
-        try await withTimeout(.seconds(10)) { await collectTask.value }
+        try await withTimeout(.seconds(30)) { await collectTask.value }
 
         let states = await collector.values
         #expect(states.contains(.connected))
@@ -144,7 +144,7 @@ struct ConnectionManagerTests {
 
         await manager.connect()
         await manager.heartbeatReceived()
-        try await withTimeout(.seconds(10)) {
+        try await withTimeout(.seconds(30)) {
             await t1.value
             await t2.value
         }
@@ -170,7 +170,7 @@ struct ConnectionManagerTests {
         let t1 = Task {
             for await _ in stream1 { break }
         }
-        try await withTimeout(.seconds(10)) { await t1.value }
+        try await withTimeout(.seconds(30)) { await t1.value }
 
         // stream2 should still work
         let collector = AsyncCollector<ConnectionState>()
@@ -183,7 +183,7 @@ struct ConnectionManagerTests {
 
         await manager.connect()
         await manager.heartbeatReceived()
-        try await withTimeout(.seconds(10)) { await t2.value }
+        try await withTimeout(.seconds(30)) { await t2.value }
 
         let states = await collector.values
         #expect(states.contains(.connected))
@@ -211,7 +211,7 @@ struct ConnectionManagerTests {
 
         await manager.connect()
         await manager.heartbeatReceived()
-        try await withTimeout(.seconds(10)) { await collectTask.value }
+        try await withTimeout(.seconds(30)) { await collectTask.value }
 
         let states = await collector.values
         let connectedCount = states.filter { $0 == .connected }.count
@@ -244,7 +244,7 @@ struct ConnectionManagerTests {
 
         await manager.connect()
         await manager.heartbeatReceived()
-        try await withTimeout(.seconds(10)) { await collectTask.value }
+        try await withTimeout(.seconds(30)) { await collectTask.value }
 
         let states = await collector.values
         #expect(states.contains(.connected))

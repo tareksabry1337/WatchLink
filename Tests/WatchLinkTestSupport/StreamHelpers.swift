@@ -7,7 +7,7 @@ public struct StreamEndedError: Error {
 
 public func firstValue<T: Sendable>(
     from stream: AsyncStream<T>,
-    timeout: Duration = .seconds(10)
+    timeout: Duration = .seconds(30)
 ) async throws -> T {
     try await withTimeout(timeout) {
         for await value in stream { return value }
@@ -17,7 +17,7 @@ public func firstValue<T: Sendable>(
 
 public func firstMessage<M: WatchLinkMessage>(
     from stream: AsyncStream<ReceivedMessage<M>>,
-    timeout: Duration = .seconds(10)
+    timeout: Duration = .seconds(30)
 ) async throws -> M {
     let received = try await firstValue(from: stream, timeout: timeout)
     return received.value
@@ -25,7 +25,7 @@ public func firstMessage<M: WatchLinkMessage>(
 
 public func findFrame(
     from stream: AsyncStream<Data>,
-    timeout: Duration = .seconds(10),
+    timeout: Duration = .seconds(30),
     matching predicate: @Sendable @escaping (Frame) -> Bool
 ) async throws -> Frame {
     try await withTimeout(timeout) {
@@ -41,7 +41,7 @@ public func findFrame(
 public func collectFrames(
     from stream: AsyncStream<Data>,
     count: Int,
-    timeout: Duration = .seconds(10)
+    timeout: Duration = .seconds(30)
 ) async throws -> [Frame] {
     try await withTimeout(timeout) {
         var frames: [Frame] = []

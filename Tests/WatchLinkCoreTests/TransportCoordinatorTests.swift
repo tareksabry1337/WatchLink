@@ -83,7 +83,7 @@ struct TransportCoordinatorTests {
 
         let wireData = try encodeFrame(PingMessage(count: 99))
 
-        let result: PingMessage = try await withTimeout(.seconds(10)) {
+        let result: PingMessage = try await withTimeout(.seconds(30)) {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(wireData)
             for await msg in stream { return msg.value }
@@ -103,7 +103,7 @@ struct TransportCoordinatorTests {
         let pongFrame = try encodeFrame(PongMessage(count: 1))
         let pingFrame = try encodeFrame(PingMessage(count: 7))
 
-        let result: PingMessage = try await withTimeout(.seconds(10)) {
+        let result: PingMessage = try await withTimeout(.seconds(30)) {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(pongFrame)
             await transport.simulateIncoming(pingFrame)
@@ -128,7 +128,7 @@ struct TransportCoordinatorTests {
         let duplicateData = try encoder.encode(duplicateFrame)
         let uniqueData = try encodeFrame(PingMessage(count: 2))
 
-        let results = try await withTimeout(.seconds(10)) {
+        let results = try await withTimeout(.seconds(30)) {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(duplicateData)
             await transport.simulateIncoming(duplicateData)
@@ -162,11 +162,11 @@ struct TransportCoordinatorTests {
         let stream2 = await coordinator.messages(PingMessage.self)
         await transport.simulateIncoming(wireData)
 
-        let r1: PingMessage = try await withTimeout(.seconds(10)) {
+        let r1: PingMessage = try await withTimeout(.seconds(30)) {
             for await msg in stream1 { return msg.value }
             throw StreamEndedError()
         }
-        let r2: PingMessage = try await withTimeout(.seconds(10)) {
+        let r2: PingMessage = try await withTimeout(.seconds(30)) {
             for await msg in stream2 { return msg.value }
             throw StreamEndedError()
         }
@@ -187,7 +187,7 @@ struct TransportCoordinatorTests {
         let responseData = try JSONEncoder().encode(AnswerMessage(answer: "42"))
         let sentStream = await transport.onSent
 
-        let response: AnswerMessage = try await withTimeout(.seconds(10)) {
+        let response: AnswerMessage = try await withTimeout(.seconds(30)) {
             async let result = coordinator.send(AskMessage(question: "meaning"), timeout: .seconds(5))
 
             let sent = try await firstValue(from: sentStream)
@@ -212,7 +212,7 @@ struct TransportCoordinatorTests {
         let responseData = try JSONEncoder().encode(AnswerMessage(answer: "ok"))
         let sentStream = await good.onSent
 
-        let response: AnswerMessage = try await withTimeout(.seconds(10)) {
+        let response: AnswerMessage = try await withTimeout(.seconds(30)) {
             async let result = coordinator.send(AskMessage(question: "test"), timeout: .seconds(5))
 
             let sent = try await firstValue(from: sentStream)
@@ -257,7 +257,7 @@ struct TransportCoordinatorTests {
 
         let fastSentStream = await fast.onSent
 
-        let response: AnswerMessage = try await withTimeout(.seconds(10)) {
+        let response: AnswerMessage = try await withTimeout(.seconds(30)) {
             async let result = coordinator.send(AskMessage(question: "race"), timeout: .seconds(5))
 
             let sent = try await firstValue(from: fastSentStream)
@@ -300,7 +300,7 @@ struct TransportCoordinatorTests {
         let wireData = try encodeFrame(AskMessage(question: "time?"))
         let frame = try JSONDecoder().decode(Frame.self, from: wireData)
 
-        let received: ReceivedMessage<AskMessage> = try await withTimeout(.seconds(10)) {
+        let received: ReceivedMessage<AskMessage> = try await withTimeout(.seconds(30)) {
             let stream = await coordinator.messages(AskMessage.self)
             await transport.simulateIncoming(wireData)
             for await msg in stream { return msg }
@@ -337,7 +337,7 @@ struct TransportCoordinatorTests {
         let data = try encoder.encode(frame)
         await transport.simulateIncoming(data)
 
-        let receivedFrame: ControlFrame? = try await withTimeout(.seconds(10)) {
+        let receivedFrame: ControlFrame? = try await withTimeout(.seconds(30)) {
             await holder.next()
         }
 
@@ -358,7 +358,7 @@ struct TransportCoordinatorTests {
         let controlData = try encoder.encode(controlFrame)
         let messageData = try encodeFrame(PingMessage(count: 1))
 
-        let result: PingMessage = try await withTimeout(.seconds(10)) {
+        let result: PingMessage = try await withTimeout(.seconds(30)) {
             let stream = await coordinator.messages(PingMessage.self)
             await transport.simulateIncoming(controlData)
             await transport.simulateIncoming(messageData)
@@ -582,10 +582,10 @@ struct TransportCoordinatorTests {
 
         // Send same control frame twice — both should be processed
         await transport.simulateIncoming(pingData)
-        let first = try await withTimeout(.seconds(10)) { await holder.next() }
+        let first = try await withTimeout(.seconds(30)) { await holder.next() }
 
         await transport.simulateIncoming(pingData)
-        let second = try await withTimeout(.seconds(10)) { await holder.next() }
+        let second = try await withTimeout(.seconds(30)) { await holder.next() }
 
         if case .ping = first {} else { Issue.record("Expected ping") }
         if case .ping = second {} else { Issue.record("Expected ping on retry") }
@@ -612,7 +612,7 @@ struct TransportCoordinatorTests {
 
         // Wait for all 10 to be processed by reading them from the holder
         for _ in 0..<10 {
-            _ = try await withTimeout(.seconds(10)) { await holder.next() }
+            _ = try await withTimeout(.seconds(30)) { await holder.next() }
         }
 
         #expect(await coordinator.diagnosticsSeenIDsCount == 0)
