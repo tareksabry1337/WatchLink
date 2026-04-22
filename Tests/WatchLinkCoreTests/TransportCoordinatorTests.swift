@@ -3,7 +3,7 @@ import Foundation
 @testable import WatchLinkCore
 import WatchLinkTestSupport
 
-@Suite("TransportCoordinator")
+@Suite("TransportCoordinator", .serialized)
 struct TransportCoordinatorTests {
 
     // MARK: - Send
