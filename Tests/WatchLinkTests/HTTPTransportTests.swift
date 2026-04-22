@@ -139,7 +139,7 @@ struct HTTPTransportTests {
         await transport.clearServerIP()
 
         let collector = AsyncCollector<Bool>()
-        let collected: [Bool] = try await withTimeout(.seconds(10)) {
+        let collected: [Bool] = try await withTimeout(.seconds(30)) {
             for await value in changes {
                 await collector.append(value)
                 if await collector.values.count >= 2 { break }

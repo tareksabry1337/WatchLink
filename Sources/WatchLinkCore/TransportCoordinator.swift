@@ -12,8 +12,8 @@ package final class TransportCoordinator {
     private var reachabilityTask: Task<Void, Never>?
     private var retryTask: Task<Void, Never>?
     private var subscriptions: [Channel: [UUID: @Sendable (Data, String) -> Void]] = [:]
-    private var controlHandler: (@Sendable (ControlFrame) -> Void)?
-    private var heartbeatHandler: (@Sendable () -> Void)?
+    private var controlHandler: (@WatchLinkActor (ControlFrame) -> Void)?
+    private var heartbeatHandler: (@WatchLinkActor () -> Void)?
     private var ingestionTask: Task<Void, Never>?
     private var unackedMessages: [String: UnackedEntry] = [:]
     private var pendingConfirmations: Set<String> = []
@@ -81,11 +81,11 @@ package final class TransportCoordinator {
         pendingConfirmations.removeAll()
     }
 
-    package func onControl(_ handler: @escaping @Sendable (ControlFrame) -> Void) {
+    package func onControl(_ handler: @escaping @WatchLinkActor (ControlFrame) -> Void) {
         controlHandler = handler
     }
 
-    package func onHeartbeat(_ handler: @escaping @Sendable () -> Void) {
+    package func onHeartbeat(_ handler: @escaping @WatchLinkActor () -> Void) {
         heartbeatHandler = handler
     }
 

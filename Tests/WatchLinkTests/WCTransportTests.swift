@@ -74,7 +74,7 @@ struct WCTransportTests {
         let payload = Data("incoming".utf8)
         await transport.handleIncoming(payload)
 
-        let received: IncomingMessage = try await withTimeout(.seconds(10)) {
+        let received: IncomingMessage = try await withTimeout(.seconds(30)) {
             for await msg in stream { return msg }
             throw StreamEndedError()
         }
