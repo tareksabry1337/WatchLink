@@ -65,13 +65,13 @@ public final class WatchLink: Sendable {
     /// Starts every configured transport, begins BLE scanning, and observes app lifecycle.
     public func connect() async {
         coordinator.onHeartbeat { [weak connectionManager] in
-            Task {
-                await connectionManager?.heartbeatReceived()
-            }
+            connectionManager?.heartbeatReceived()
         }
 
         coordinator.startAll()
-        startBLEDiscovery()
+        if let httpTransport, let bleDiscovery {
+            startBLEDiscovery(transport: httpTransport, discovery: bleDiscovery)
+        }
         connectionManager.connect()
         await observeAppLifecycle()
     }
@@ -125,11 +125,10 @@ public final class WatchLink: Sendable {
         return diagnostics
     }
 
-    private func startBLEDiscovery() {
-        guard let bleDiscovery, let httpTransport else { return }
+    private func startBLEDiscovery(transport: HTTPTransport, discovery: BLEDiscovery) {
         bleDiscoveryTask = Task {
-            for await ip in bleDiscovery.startScanning() {
-                httpTransport.updateServerIP(ip)
+            for await ip in discovery.startScanning() {
+                transport.updateServerIP(ip)
             }
         }
     }

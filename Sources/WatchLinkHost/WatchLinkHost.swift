@@ -69,14 +69,13 @@ public final class WatchLinkHost: Sendable {
     /// Throws `WatchLinkError.serverStartFailed` if the HTTP listener cannot bind.
     public func start() async throws {
         coordinator.onControl { [weak self] frame in
-            guard let self else { return }
-            Task {
-                await self.handleControl(frame)
-            }
+            self?.handleControl(frame)
         }
 
         coordinator.startAll()
-        await startBLEAdvertising()
+        if let httpServer, let bleAdvertiser {
+            await startBLEAdvertising(server: httpServer, advertiser: bleAdvertiser)
+        }
         await observeAppLifecycle()
     }
 
@@ -153,14 +152,14 @@ public final class WatchLinkHost: Sendable {
     }
 
     private func handleForeground() async {
-        httpServer?.start()
-        await startBLEAdvertising()
+        guard let httpServer, let bleAdvertiser else { return }
+        httpServer.start()
+        await startBLEAdvertising(server: httpServer, advertiser: bleAdvertiser)
     }
 
-    private func startBLEAdvertising() async {
-        guard let server = httpServer, let ble = bleAdvertiser else { return }
+    private func startBLEAdvertising(server: HTTPServer, advertiser: BLEAdvertiser) async {
         guard let ip = await server.localIP() else { return }
-        ble.startAdvertising(ip: ip)
+        advertiser.startAdvertising(ip: ip)
     }
 
     private func handleControl(_ frame: ControlFrame) {
